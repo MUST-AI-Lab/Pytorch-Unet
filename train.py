@@ -25,7 +25,7 @@ def train_net(net,
               device,
               epochs=5,
               batch_size=1,
-              lr=0.1,
+              lr=0.001,
               val_percent=0.1,
               save_cp=True,
               img_scale=0.5):
@@ -35,7 +35,7 @@ def train_net(net,
     n_train = len(dataset) - n_val
     train, val = random_split(dataset, [n_train, n_val])
     train_loader = DataLoader(train, batch_size=batch_size, shuffle=True, num_workers=8, pin_memory=True)
-    val_loader = DataLoader(val, batch_size=batch_size, shuffle=False, num_workers=8, pin_memory=True)
+    val_loader = DataLoader(val, batch_size=batch_size, shuffle=False, num_workers=8, pin_memory=True, drop_last=True)
 
     writer = SummaryWriter(comment=f'LR_{lr}_BS_{batch_size}_SCALE_{img_scale}')
     global_step = 0
@@ -51,7 +51,8 @@ def train_net(net,
         Images scaling:  {img_scale}
     ''')
 
-    optimizer = optim.RMSprop(net.parameters(), lr=lr, weight_decay=1e-8)
+    optimizer = optim.RMSprop(net.parameters(), lr=lr, weight_decay=1e-8, momentum=0.9)
+    scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'min' if net.n_classes > 1 else 'max', patience=2)
     if net.n_classes > 1:
         criterion = nn.CrossEntropyLoss()
     else:
@@ -83,16 +84,23 @@ def train_net(net,
 
                 optimizer.zero_grad()
                 loss.backward()
+                nn.utils.clip_grad_value_(net.parameters(), 0.1)
                 optimizer.step()
 
                 pbar.update(imgs.shape[0])
                 global_step += 1
-                if global_step % (len(dataset) // (10 * batch_size)) == 0:
-                    val_score = eval_net(net, val_loader, device, n_val)
+                if global_step % (n_train // (10 * batch_size)) == 0:
+                    for tag, value in net.named_parameters():
+                        tag = tag.replace('.', '/')
+                        writer.add_histogram('weights/' + tag, value.data.cpu().numpy(), global_step)
+                        writer.add_histogram('grads/' + tag, value.grad.data.cpu().numpy(), global_step)
+                    val_score = eval_net(net, val_loader, device)
+                    scheduler.step(val_score)
+                    writer.add_scalar('learning_rate', optimizer.param_groups[0]['lr'], global_step)
+
                     if net.n_classes > 1:
                         logging.info('Validation cross entropy: {}'.format(val_score))
                         writer.add_scalar('Loss/test', val_score, global_step)
-
                     else:
                         logging.info('Validation Dice Coeff: {}'.format(val_score))
                         writer.add_scalar('Dice/test', val_score, global_step)
@@ -146,11 +154,11 @@ if __name__ == '__main__':
     #   - For 1 class and background, use n_classes=1
     #   - For 2 classes, use n_classes=1
     #   - For N > 2 classes, use n_classes=N
-    net = UNet(n_channels=3, n_classes=1)
+    net = UNet(n_channels=3, n_classes=1, bilinear=True)
     logging.info(f'Network:\n'
                  f'\t{net.n_channels} input channels\n'
                  f'\t{net.n_classes} output channels (classes)\n'
-                 f'\t{"Bilinear" if net.bilinear else "Dilated conv"} upscaling')
+                 f'\t{"Bilinear" if net.bilinear else "Transposed conv"} upscaling')
 
     if args.load:
         net.load_state_dict(
