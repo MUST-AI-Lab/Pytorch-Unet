@@ -7,6 +7,8 @@ from torch.utils.data import Dataset
 import logging
 from PIL import Image
 
+__all__ = ['BasicDataset', 'CarvanaDataset']
+
 
 class BasicDataset(Dataset):
     def __init__(self, imgs_dir, masks_dir, scale=1, mask_suffix=''):
