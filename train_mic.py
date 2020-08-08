@@ -69,11 +69,12 @@ def get_args():
                         help='number of classes')
 
     # loss
-    parser.add_argument('--loss', default='CrossEntropyLoss',
+    parser.add_argument('--loss', default='WeightBCELoss',
                         choices=LOSS_NAMES,
                         help='loss: ' +
                         ' | '.join(LOSS_NAMES) +
-                        ' (default: CrossEntropyLoss)')
+                        ' (default: WeightBCELoss)')
+    parser.add_argument('--weight_loss', default=True, type=str2bool)
 
     # dataset
     parser.add_argument('--dataset', metavar='DATASET', default='MICDataset',
@@ -150,12 +151,14 @@ def train_net(net,device,train_loader,args):
         for batch in train_loader:
             imgs = batch['image']
             true_masks = batch['mask']
+            weight = batch['weight']
             assert imgs.shape[1] == net.n_channels, \
                     f'Network has been defined with {net.n_channels} input channels, ' \
                     f'but loaded images have {imgs.shape[1]} channels. Please check that ' \
                     'the images are loaded correctly.'
 
             imgs = imgs.to(device=device, dtype=torch.float32)
+            weight = weight.to(device=device, dtype=torch.float32)
             mask_type = torch.float32 if net.n_classes == 1 else torch.long
             true_masks = true_masks.to(device=device, dtype=mask_type)
 
@@ -164,10 +167,16 @@ def train_net(net,device,train_loader,args):
             if args.deep_supervision:
                 loss = 0
                 for output in masks_pred:
-                    loss += criterion(output, true_masks)
+                    if args.weight_loss:
+                        loss += criterion(output, true_masks,weight)
+                    else:
+                        loss += criterion(output, true_masks)
                 loss /= len(masks_pred)
             else:
-                loss = criterion(masks_pred, true_masks)
+                if args.weight_loss:
+                    loss = criterion(masks_pred, true_masks,weight)
+                else:
+                    loss = criterion(masks_pred, true_masks)
 
             avg_meters['loss'].update(loss.item())
             pbar.set_postfix(**{'train_loss': avg_meters['loss'].avg})
@@ -188,11 +197,12 @@ def eval_net(net, device, val_loader ,args):
     batch_count = 0
 
     with tqdm(total=n_val, desc='Validation round') as pbar:
-        
         for batch  in val_loader:
             imgs = batch['image']
             true_masks = batch['mask']
+            weight = batch['weight']
             imgs = imgs.to(device=device, dtype=torch.float32)
+            weight = weight.to(device=device, dtype=torch.float32)
             true_masks = true_masks.to(device=device, dtype=mask_type)
 
             with torch.no_grad():
@@ -208,7 +218,10 @@ def eval_net(net, device, val_loader ,args):
                 pred = torch.sigmoid(mask_pred)
                 pred_int = (pred > 0.5).int()
                 pred = (pred > 0.5).float()
-                loss = criterion(mask_pred, true_masks)
+                if args.weight_loss:
+                    loss = criterion(mask_pred, true_masks,weight)
+                else:
+                    loss = criterion(mask_pred, true_masks)
 
                 avg_meters['loss'].update(loss)
                 # for i in range(imgs.shape[0]):
