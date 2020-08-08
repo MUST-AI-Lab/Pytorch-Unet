@@ -5,3 +5,6 @@ torch
 torchvision
 tensorboard
 future
+albumentations
+glob
+cv2
