@@ -19,6 +19,7 @@ import collections
 from utils.metrics import IOU,pixel_error,rand_error,dice_coeff
 import utils.data_vis as vis
 from torch.optim import lr_scheduler
+import pandas as pd
 try:
     from collections import OrderedDict
 except ImportError:
@@ -348,6 +349,9 @@ if __name__ == '__main__':
         args:          {args}
     ''')
 
+    #for csv
+    log = OrderedDict()
+
     writer = SummaryWriter(comment=f'_ex.{args.experiment}_LR_{args.lr}_BS_{args.batchsize}_model_{args.arch}')
     savepoint=savepoints.__dict__[args.savepoint]()
     try:
@@ -366,10 +370,19 @@ if __name__ == '__main__':
             else:
                 scheduler.step()
 
+            if 'epoch' not in log:
+                log['epoch'] = []
+            log['epoch'].append(epoch+1)
+
             #record for tensorboard
             for m_key in train_log:
                 scale = '{}/train'.format(m_key)
                 writer.add_scalar(scale,train_log[m_key], (epoch+1))
+                #for single file in csv
+                if '{}_{}'.format('train',m_key) not in log:
+                    log['{}_{}'.format('train',m_key)]=[]
+                log['{}_{}'.format('train',m_key)].append(train_log[m_key])
+
             for tag, value in net.named_parameters():
                 tag = tag.replace('.', '/')
                 writer.add_histogram('weights/' + tag, value.data.cpu().numpy(), (epoch+1))
@@ -380,11 +393,19 @@ if __name__ == '__main__':
                     scale = '{}/test'.format(m_key)
                     logging.info('{} : {}'.format(m_key,val_log[m_key]))
                     writer.add_scalar(scale,val_log[m_key], (epoch+1))
+                    #for single file in csv
+                    if '{}_{}'.format('val',m_key) not in log:
+                        log['{}_{}'.format('val',m_key)]=[]
+                    log['{}_{}'.format('val',m_key)].append(val_log[m_key])
             else:
                 for m_key in val_log:
                     scale = '{}/test'.format(m_key)
                     logging.info('{} : {}'.format(m_key,val_log[m_key]))
                     writer.add_scalar(scale,val_log[m_key], (epoch+1))
+                    #for single file in csv
+                    if '{}_{}'.format('val',m_key) not in log:
+                        log['{}_{}'.format('val',m_key)]=[]
+                    log['{}_{}'.format('val',m_key)].append(val_log[m_key])
             logging.info('==================================================>\n')
             writer.add_scalar('learning_rate', optimizer.param_groups[0]['lr'], (epoch+1))
 
@@ -406,6 +427,8 @@ if __name__ == '__main__':
                         pass
                     torch.save(net.state_dict(),args.dir_checkpoint + f'CP_ex.{args.experiment}_epoch{epoch + 1}_{args.arch}_{args.dataset}.pth')
                     logging.info(f'Checkpoint {epoch + 1} saved !')
+        #for csv
+        pd.DataFrame(log).to_csv('./result/{}.csv'.format(args.experiment),index=None)
         writer.close()
     except KeyboardInterrupt:
         if args.save_check_point:

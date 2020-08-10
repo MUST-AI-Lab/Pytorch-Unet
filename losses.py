@@ -20,7 +20,7 @@ class WeightBCELoss(nn.Module):
         output = torch.sigmoid(output)
         flatten_out =output.contiguous().view(-1)
         flatten_target = target.contiguous().view(-1)
-        if weight is not None:
+        if weights is not None:
             flatten_weights = weights.contiguous().view(-1)
         if weights is not None:
             assert weights.shape==target.shape
