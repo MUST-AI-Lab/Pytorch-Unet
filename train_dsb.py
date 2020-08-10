@@ -435,9 +435,6 @@ if __name__ == '__main__':
 
             logging.info('==================================================>\n')
             writer.add_scalar('learning_rate', optimizer.param_groups[0]['lr'], (epoch+1))
-            #for csv
-            pd.DataFrame(log).to_csv('./result/{}.csv'.format(args.experiment),index=None)
-            writer.close()
 
             if args.save_check_point:
                 if args.save_mode == 'by_best':
@@ -449,6 +446,14 @@ if __name__ == '__main__':
                             pass
                         torch.save(net.state_dict(),args.dir_checkpoint + f'CP_ex.{args.experiment}_epoch{epoch + 1}_{args.arch}_{args.dataset}.pth')
                         logging.info(f'Checkpoint {epoch + 1} saved !')
+                        # for csv
+                        if 'is_best' not in log:
+                            log['is_best'] = []
+                        log['is_best'] .append(1)
+                    else:
+                        if 'is_best' not in log:
+                            log['is_best'] = []
+                        log['is_best'] .append(0)
                 else:
                     try:
                         os.mkdir(args.dir_checkpoint)
@@ -457,6 +462,8 @@ if __name__ == '__main__':
                         pass
                     torch.save(net.state_dict(),args.dir_checkpoint + f'CP_ex.{args.experiment}_epoch{epoch + 1}_{args.arch}_{args.dataset}.pth')
                     logging.info(f'Checkpoint {epoch + 1} saved !')
+        #for csv
+        pd.DataFrame(log).to_csv('./result/{}.csv'.format(args.experiment),index=None)
         writer.close()
     except KeyboardInterrupt:
         if args.save_check_point:

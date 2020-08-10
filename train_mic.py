@@ -419,6 +419,14 @@ if __name__ == '__main__':
                             pass
                         torch.save(net.state_dict(),args.dir_checkpoint + f'CP_ex.{args.experiment}_epoch{epoch + 1}_{args.arch}_{args.dataset}.pth')
                         logging.info(f'Checkpoint {epoch + 1} saved !')
+                        # for csv
+                        if 'is_best' not in log:
+                            log['is_best'] = []
+                        log['is_best'] .append(1)
+                    else:
+                        if 'is_best' not in log:
+                            log['is_best'] = []
+                        log['is_best'] .append(0)
                 else:
                     try:
                         os.mkdir(args.dir_checkpoint)
