@@ -20,13 +20,15 @@ class WeightBCELoss(nn.Module):
         output = torch.sigmoid(output)
         flatten_out =output.contiguous().view(-1)
         flatten_target = target.contiguous().view(-1)
-        flatten_weights = weights.contiguous().view(-1)
+        if weight is not None:
+            flatten_weights = weights.contiguous().view(-1)
         if weights is not None:
             assert weights.shape==target.shape
             bias = 1e-11
             loss = flatten_target * torch.log(flatten_out+bias) + (1 - flatten_target) * torch.log(1 - flatten_out+bias)
             loss = loss*flatten_weights
         else:
+            bias = 1e-11
             loss = flatten_target * torch.log(flatten_out+bias) + (1 - flatten_target) * torch.log(1 - flatten_out+bias)
 
         loss = torch.mean(loss)
