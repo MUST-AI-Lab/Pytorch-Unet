@@ -1,9 +1,31 @@
+# first test
 python3 train_dsb.py --experiment DSB00001 --batch-size 10 --arch UNet --deep_supervision false --optimizer SGD 
 
 python3 train_dsb.py --experiment DSB00002 --batch-size 10 --arch NestedUNet --deep_supervision false --optimizer SGD
 
 python3 train_dsb.py --experiment DSB00003 --batch-size 10 --arch NestedUNet --deep_supervision true --optimizer SGD
 
+#test  for adam
+python3 train_dsb.py --experiment DSB00004 --batch-size 10 --arch UNet --deep_supervision false --optimizer Adam  --learning-rate 1e-3
+
+python3 train_dsb.py --experiment DSB00005 --batch-size 10 --arch NestedUNet --deep_supervision false --optimizer Adam  --learning-rate 1e-3
+
+python3 train_dsb.py --experiment DSB00006 --batch-size 10 --arch NestedUNet --deep_supervision true --optimizer Adam  --learning-rate 1e-3
+
+python3 train_dsb.py --experiment DSB00007 --batch-size 10 --arch UNet --deep_supervision false --optimizer Adam  --learning-rate 1e-1
+
+python3 train_dsb.py --experiment DSB00008 --batch-size 10 --arch NestedUNet --deep_supervision false --optimizer Adam  --learning-rate 1e-1
+
+python3 train_dsb.py --experiment DSB00009 --batch-size 10 --arch NestedUNet --deep_supervision true --optimizer Adam  --learning-rate 1e-1
+
+python3 train_dsb.py --experiment DSB00010 --batch-size 10 --arch UNet --deep_supervision false --optimizer Adam  --learning-rate 1e-2
+
+python3 train_dsb.py --experiment DSB00011 --batch-size 10 --arch NestedUNet --deep_supervision false --optimizer Adam  --learning-rate 1e-2
+
+python3 train_dsb.py --experiment DSB00012 --batch-size 10 --arch NestedUNet --deep_supervision true --optimizer Adam  --learning-rate 1e-2
+
+
+# first test for deep supervision and  weight loss
 python3 train_mic.py --experiment MIC00001 --batch-size 1 --arch NestedUNet --deep_supervision false --optimizer SGD --scale -1
 
 python3 train_mic.py --experiment MIC00002 --batch-size 1 --arch NestedUNet --deep_supervision true --optimizer SGD --scale -1
@@ -37,7 +59,21 @@ python3 train_mic.py --experiment MIC00015 --batch-size 1 --arch UNet --deep_sup
 python3 train_mic.py --experiment MIC00016 --batch-size 1 --arch NestedUNet --deep_supervision true --optimizer SGD --scale -1 --weight_loss false --data_name ISBI
 
 
+#test for different implement  weights for loss
 
+#for NestedUNet  without deep_supervision
+python3 train_mic.py --experiment MIC00017 --batch-size 1 --arch NestedUNet --deep_supervision false --optimizer SGD --scale -1 --weight_loss false  --loss BCEWithLogitsLoss --data_name Hela --epochs 60
+python3 train_mic.py --experiment MIC00018 --batch-size 1 --arch NestedUNet --deep_supervision false --optimizer SGD --scale -1 --weight_loss true  --loss WeightBCELoss --data_name Hela --epochs 60
+python3 train_mic.py --experiment MIC00019 --batch-size 1 --arch NestedUNet --deep_supervision false --optimizer SGD --scale -1 --weight_loss true  --loss WeightBCELossNormal --data_name Hela --epochs 60
 
+#for NestedUNet  with deep_supervision
+python3 train_mic.py --experiment MIC00020 --batch-size 1 --arch NestedUNet --deep_supervision true --optimizer SGD --scale -1 --weight_loss false  --loss BCEWithLogitsLoss --data_name Hela --epochs 60
+python3 train_mic.py --experiment MIC00021 --batch-size 1 --arch NestedUNet --deep_supervision true --optimizer SGD --scale -1 --weight_loss true  --loss WeightBCELoss --data_name Hela --epochs 60
+python3 train_mic.py --experiment MIC00022 --batch-size 1 --arch NestedUNet --deep_supervision true --optimizer SGD --scale -1 --weight_loss true  --loss WeightBCELossNormal --data_name Hela --epochs 60
+
+#for UNet  has no deep_supervision implment
+python3 train_mic.py --experiment MIC00023 --batch-size 1 --arch NestedUNet --deep_supervision false --optimizer SGD --scale -1 --weight_loss false  --loss BCEWithLogitsLoss --data_name Hela --epochs 60
+python3 train_mic.py --experiment MIC00024 --batch-size 1 --arch NestedUNet --deep_supervision false --optimizer SGD --scale -1 --weight_loss true  --loss WeightBCELoss --data_name Hela --epochs 60
+python3 train_mic.py --experiment MIC00025 --batch-size 1 --arch NestedUNet --deep_supervision false --optimizer SGD --scale -1 --weight_loss true  --loss WeightBCELossNormal --data_name Hela --epochs 60
 
 

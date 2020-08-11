@@ -212,7 +212,7 @@ def eval_net(net, device, val_loader ,args):
             if args.deep_supervision: #choose final
                 mask_pred = mask_pred[-1]
 
-            if net.n_classes > 1:
+            if net.n_classes > 1:#need to fix
                 loss = F.cross_entropy(mask_pred, true_masks).item()
                 avg_meters['loss'].update(loss)
             else:
@@ -352,7 +352,7 @@ if __name__ == '__main__':
     #for csv
     log = OrderedDict()
 
-    writer = SummaryWriter(comment=f'_ex.{args.experiment}_LR_{args.lr}_BS_{args.batchsize}_model_{args.arch}')
+    writer = SummaryWriter(comment=f'_ex.{args.experiment}_{args.optimizer}_LR_{args.lr}_BS_{args.batchsize}_model_{args.arch}')
     savepoint=savepoints.__dict__[args.savepoint]()
     try:
         if args.continue_epochs <0:

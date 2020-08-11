@@ -320,7 +320,7 @@ def get_scheduler(args,optimizer):
 
 def get_criterion(args,model):
     if args.loss == 'CrossEntropyLoss' or args.loss == 'BCEWithLogitsLoss':
-        if model.n_classes > 1:
+        if model.n_classes > 1: #need to fix
             criterion = nn.CrossEntropyLoss()
         else:
             criterion = nn.BCEWithLogitsLoss()
@@ -378,7 +378,7 @@ if __name__ == '__main__':
     #for csv
     log = OrderedDict()
 
-    writer = SummaryWriter(comment=f'_ex.{args.experiment}_LR_{args.lr}_BS_{args.batchsize}_model_{args.arch}')
+    writer = SummaryWriter(comment=f'_ex.{args.experiment}_{args.optimizer}_LR_{args.lr}_BS_{args.batchsize}_model_{args.arch}')
     savepoint=savepoints.__dict__[args.savepoint]()
     try:
         if args.continue_epochs <0:

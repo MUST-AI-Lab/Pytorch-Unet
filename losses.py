@@ -10,7 +10,28 @@ try:
 except ImportError:
     pass
 
-__all__ = ['BCEDiceLoss', 'LovaszHingeLoss','WeightBCELoss']
+__all__ = ['BCEDiceLoss', 'LovaszHingeLoss','WeightBCELoss','WeightBCELossNormal']
+
+
+class WeightBCELossNormal(nn.Module):
+    def __init__(self):
+            super().__init__()
+
+    def forward(self,output, target, weights=None):
+        output = torch.sigmoid(output)
+        flatten_out =output.contiguous().view(-1)
+        flatten_target = target.contiguous().view(-1)
+        if weights is not None:
+            flatten_weights = weights.contiguous().view(-1)
+        if weights is not None:
+            assert weights.shape==target.shape
+            loss = flatten_target * torch.log(flatten_out) + (1 - flatten_target) * torch.log(1 - flatten_out)
+            loss = loss*flatten_weights
+        else:
+            loss = flatten_target * torch.log(flatten_out) + (1 - flatten_target) * torch.log(1 - flatten_out)
+
+        loss = torch.mean(loss)
+        return torch.neg(loss)
 
 class WeightBCELoss(nn.Module):
     def __init__(self):
