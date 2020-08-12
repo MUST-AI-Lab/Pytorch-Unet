@@ -199,14 +199,14 @@ def eval_net(net, device, val_loader ,args):
 
             if net.n_classes > 1:
                 loss = F.cross_entropy(mask_pred, true_masks).item()
-                avg_meters['loss'].update(loss)
+                avg_meters['loss'].update(loss.cpu().item())
             else:
                 pred = torch.sigmoid(mask_pred)
                 pred_int = (pred > 0.5).int()
                 pred = (pred > 0.5).float()
                 loss = criterion(mask_pred, true_masks)
 
-                avg_meters['loss'].update(loss)
+                avg_meters['loss'].update(loss.cpu().item())
                 # for i in range(imgs.shape[0]):
                 for i in range(imgs.shape[0]):
                     s_true_mask =  true_masks[i].cpu().detach().numpy()
