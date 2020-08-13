@@ -2,8 +2,9 @@
 __all__ = ['AVG']
 
 class AVG:
-    def __init__(self):
+    def __init__(self,args):
         self.current=None
+        self.args = args
 
     def is_new_best(self,val_log):
         if self.current == None:

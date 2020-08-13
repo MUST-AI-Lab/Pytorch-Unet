@@ -19,6 +19,8 @@ import collections
 from utils.metrics import IOU,pixel_error,rand_error,dice_coeff
 import utils.data_vis as vis
 from torch.optim import lr_scheduler
+from utils.tools  import set_seed
+
 try:
     from collections import OrderedDict
 except ImportError:
@@ -53,9 +55,11 @@ def get_args():
     parser.add_argument('-e', '--epochs', metavar='E', type=int, default=100,
                         help='Number of epochs', dest='epochs')
     parser.add_argument('--continue_epochs', type=int, default=-1,
-                        help='Number of epochs', dest='continue_epochs')
-    parser.add_argument('-b', '--batch-size', metavar='B', type=int, nargs='?', default=5,
+                        help='resume from a checkpoint epochs', dest='continue_epochs')
+    parser.add_argument('-b', '--batch-size', metavar='B', type=int, nargs='?', default=1,
                         help='Batch size', dest='batchsize')
+    parser.add_argument('--seed', type=int, default=45,
+                        help='a seed  for initial val', dest='seed')
 
     # model
     parser.add_argument('--arch', '-a', metavar='ARCH', default='UNet',
@@ -139,6 +143,8 @@ def get_args():
                         help='model architecture: ' +
                         ' | '.join(SAVE_POINTS) +
                         ' (default: AVG)')
+    parser.add_argument('--force_save_last', dest='force_save_last', type=str, default=False,
+                        help='Load model from a .pth file')
 
 
     return parser.parse_args()
@@ -335,6 +341,9 @@ if __name__ == '__main__':
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     logging.info(f'Using device {device}')
 
+    #set seed
+    set_seed(args.seed)
+
     # Change here to adapt to your data
     # n_channels=3 for RGB images
     # n_classes is the number of probabilities you want to get per pixel
@@ -379,7 +388,7 @@ if __name__ == '__main__':
     log = OrderedDict()
 
     writer = SummaryWriter(comment=f'_ex.{args.experiment}_{args.optimizer}_LR_{args.lr}_BS_{args.batchsize}_model_{args.arch}')
-    savepoint=savepoints.__dict__[args.savepoint]()
+    savepoint=savepoints.__dict__[args.savepoint](args)
     try:
         if args.continue_epochs <0:
             rounds = range(args.epochs)
@@ -436,6 +445,11 @@ if __name__ == '__main__':
             logging.info('==================================================>\n')
             writer.add_scalar('learning_rate', optimizer.param_groups[0]['lr'], (epoch+1))
 
+            #force to save check point at last epoch
+            if args.force_save_last and epoch == args.epochs-1:
+                    torch.save(net.state_dict(),args.dir_checkpoint + f'CP_ex.{args.experiment}_epoch{epoch + 1}_{args.arch}_{args.dataset}.pth')
+                    logging.info(f'Checkpoint {epoch + 1} saved !')
+            # save check point by condition
             if args.save_check_point:
                 if args.save_mode == 'by_best':
                     if savepoint.is_new_best(val_log=val_log):

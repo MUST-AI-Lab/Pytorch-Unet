@@ -1,3 +1,8 @@
+import torch
+import os
+import numpy as np
+import random
+
 class AverageMeter(object):
     """Computes and stores the average and current value"""
 
@@ -15,6 +20,15 @@ class AverageMeter(object):
         self.sum += val * n
         self.count += n
         self.avg = self.sum / self.count
+
+def set_seed(seed=0):
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
+    np.random.seed(seed)
+    random.seed(seed)
+    os.environ['PYTHONHASHSEED'] = str(seed)
 
 def str2bool(v):
     if v.lower() in ['true', 1]:
