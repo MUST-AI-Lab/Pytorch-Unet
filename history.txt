@@ -78,22 +78,81 @@ python3 train_mic.py --experiment MIC00038 --batch-size 1 --arch UNet --deep_sup
 
 
 1. focus on methods with default value
-python3 train_dsb.py --experiment BASIC0001 --batch-size 10 --arch NestedUNet --deep_supervision false --optimizer Adam  --learning-rate 3e-4 --epochs 50 --weight_loss false
-python3 train_dsb.py --experiment BASIC0002 --batch-size 10 --arch NestedUNet --deep_supervision true --optimizer Adam  --learning-rate 3e-4 --epochs 50 --weight_loss false
-python3 train_dsb.py --experiment BASIC0003 --batch-size 10 --arch UNet --deep_supervision false --optimizer Adam  --learning-rate 1e-2 --momentum 0.99 --epochs 50 --weight_loss false
+python3 train_dsb.py --experiment BASIC0001 --batch-size 10 --arch NestedUNet --deep_supervision false --optimizer Adam  --learning-rate 3e-4 --epochs 50 --weight_loss false --save_check_point false  --force_save_last true
+python3 train_dsb.py --experiment BASIC0002 --batch-size 10 --arch NestedUNet --deep_supervision true --optimizer Adam  --learning-rate 3e-4 --epochs 50 --weight_loss false --save_check_point false --force_save_last true
+python3 train_dsb.py --experiment BASIC0003 --batch-size 10 --arch UNet --deep_supervision false --optimizer Adam  --learning-rate 1e-2 --momentum 0.99 --epochs 50 --weight_loss false --save_check_point false --force_save_last true
 
-python3 train_mic.py --experiment BASIC0004 --batch-size 1 --arch NestedUNet --deep_supervision false --optimizer Adam --scale -1 --weight_loss false  --loss BCEWithLogitsLoss --data_name U373 --epochs 50 --learning-rate 3e-4
-python3 train_mic.py --experiment BASIC0005 --batch-size 1 --arch NestedUNet --deep_supervision true --optimizer Adam --scale -1 --weight_loss false  --loss BCEWithLogitsLoss --data_name U373 --epochs 50 --learning-rate 3e-4
-python3 train_mic.py --experiment BASIC0006 --batch-size 1 --arch UNet --deep_supervision false --optimizer SGD --scale -1 --weight_loss true  --loss WeightBCELoss --data_name U373 --epochs 50 --learning-rate 1e-2  --momentum 0.99
+python3 train_mic.py --experiment BASIC0004 --batch-size 1 --arch NestedUNet --deep_supervision false --optimizer Adam --scale -1 --weight_loss false  --loss BCEWithLogitsLoss --data_name U373 --epochs 50 --learning-rate 3e-4 --save_check_point false --force_save_last true
+python3 train_mic.py --experiment BASIC0005 --batch-size 1 --arch NestedUNet --deep_supervision true --optimizer Adam --scale -1 --weight_loss false  --loss BCEWithLogitsLoss --data_name U373 --epochs 50 --learning-rate 3e-4 --save_check_point false --force_save_last true
+python3 train_mic.py --experiment BASIC0006 --batch-size 1 --arch UNet --deep_supervision false --optimizer SGD --scale -1 --weight_loss true  --loss WeightBCELoss --data_name U373 --epochs 50 --learning-rate 1e-2  --momentum 0.99 --save_check_point false --force_save_last true
 
-python3 train_mic.py --experiment BASIC0007 --batch-size 1 --arch NestedUNet --deep_supervision false --optimizer Adam --scale -1 --weight_loss false  --loss BCEWithLogitsLoss --data_name HeLa --epochs 50 --learning-rate 3e-4
-python3 train_mic.py --experiment BASIC0008 --batch-size 1 --arch NestedUNet --deep_supervision true --optimizer Adam --scale -1 --weight_loss false  --loss BCEWithLogitsLoss --data_name HeLa --epochs 50 --learning-rate 3e-4
-python3 train_mic.py --experiment BASIC0009 --batch-size 1 --arch UNet --deep_supervision false --optimizer SGD --scale -1 --weight_loss true  --loss WeightBCELoss --data_name HeLa --epochs 50 --learning-rate 1e-2  --momentum 0.99
+python3 train_mic.py --experiment BASIC0007 --batch-size 1 --arch NestedUNet --deep_supervision false --optimizer Adam --scale -1 --weight_loss false  --loss BCEWithLogitsLoss --data_name HeLa --epochs 50 --learning-rate 3e-4 --save_check_point false --force_save_last true
+python3 train_mic.py --experiment BASIC0008 --batch-size 1 --arch NestedUNet --deep_supervision true --optimizer Adam --scale -1 --weight_loss false  --loss BCEWithLogitsLoss --data_name HeLa --epochs 50 --learning-rate 3e-4 --save_check_point false --force_save_last true
+python3 train_mic.py --experiment BASIC0009 --batch-size 1 --arch UNet --deep_supervision false --optimizer SGD --scale -1 --weight_loss true  --loss WeightBCELoss --data_name HeLa --epochs 50 --learning-rate 1e-2  --momentum 0.99 --save_check_point false --force_save_last true
 
-python3 train_mic.py --experiment BASIC0010 --batch-size 1 --arch NestedUNet --deep_supervision false --optimizer Adam --scale -1 --weight_loss false  --loss BCEWithLogitsLoss --data_name ISBI --epochs 50 --learning-rate 3e-4
-python3 train_mic.py --experiment BASIC0011 --batch-size 1 --arch NestedUNet --deep_supervision true --optimizer Adam --scale -1 --weight_loss false  --loss BCEWithLogitsLoss --data_name ISBI --epochs 50 --learning-rate 3e-4
-python3 train_mic.py --experiment BASIC0012 --batch-size 1 --arch UNet --deep_supervision false --optimizer SGD --scale -1 --weight_loss true  --loss WeightBCELoss --data_name ISBI --epochs 50 --learning-rate 1e-2  --momentum 0.99
-
-
+python3 train_mic.py --experiment BASIC0010 --batch-size 1 --arch NestedUNet --deep_supervision false --optimizer Adam --scale -1 --weight_loss false  --loss BCEWithLogitsLoss --data_name ISBI --epochs 50 --learning-rate 3e-4 --save_check_point false --force_save_last true
+python3 train_mic.py --experiment BASIC0011 --batch-size 1 --arch NestedUNet --deep_supervision true --optimizer Adam --scale -1 --weight_loss false  --loss BCEWithLogitsLoss --data_name ISBI --epochs 50 --learning-rate 3e-4 --save_check_point false --force_save_last true
+python3 train_mic.py --experiment BASIC0012 --batch-size 1 --arch UNet --deep_supervision false --optimizer SGD --scale -1 --weight_loss true  --loss WeightBCELoss --data_name ISBI --epochs 50 --learning-rate 1e-2  --momentum 0.99 --save_check_point false  --force_save_last true
 
 
+===============================================================================================
+分割线1
+===============================================================================================
+
+# 1. HeLa 数据集
+# baselise
+python3 train_mic.py --experiment HeLa0001 --batch-size 1 --arch NestedUNet --deep_supervision false --optimizer Adam --scale -1 --weight_loss false  --loss BCEDiceLoss --data_name HeLa --epochs 50 --learning-rate 3e-4 --save_check_point false --force_save_last true
+python3 train_mic.py --experiment HeLa0002 --batch-size 1 --arch NestedUNet --deep_supervision true --optimizer Adam --scale -1 --weight_loss false  --loss BCEDiceLoss --data_name HeLa --epochs 50 --learning-rate 3e-4 --save_check_point false --force_save_last true
+python3 train_mic.py --experiment HeLa0003 --batch-size 1 --arch UNet --deep_supervision false --optimizer SGD --scale -1 --weight_loss true  --loss WeightBCELoss --data_name HeLa --epochs 50 --learning-rate 1e-2  --momentum 0.99 --save_check_point false  --force_save_last true
+
+# The Control group with weight
+python3 train_mic.py --experiment HeLa0001 --batch-size 1 --arch NestedUNet --deep_supervision false --optimizer Adam --scale -1 --weight_loss true  --loss WeightBCEDiceLoss --data_name HeLa --epochs 50 --learning-rate 3e-4 --save_check_point false --force_save_last true
+python3 train_mic.py --experiment HeLa0001 --batch-size 1 --arch NestedUNet --deep_supervision false --optimizer Adam --scale -1 --weight_loss true  --loss WeightBCELoss --data_name HeLa --epochs 50 --learning-rate 3e-4 --save_check_point false --force_save_last true
+
+python3 train_mic.py --experiment HeLa0001 --batch-size 1 --arch NestedUNet --deep_supervision true --optimizer Adam --scale -1 --weight_loss true  --loss WeightBCEDiceLoss --data_name HeLa --epochs 50 --learning-rate 3e-4 --save_check_point false --force_save_last true
+python3 train_mic.py --experiment HeLa0001 --batch-size 1 --arch NestedUNet --deep_supervision true --optimizer Adam --scale -1 --weight_loss true  --loss WeightBCELoss --data_name HeLa --epochs 50 --learning-rate 3e-4 --save_check_point false --force_save_last true
+
+python3 train_mic.py --experiment HeLa0003 --batch-size 1 --arch UNet --deep_supervision false --optimizer SGD --scale -1 --weight_loss false  --loss BCEWithLogitsLoss --data_name HeLa --epochs 50 --learning-rate 1e-2  --momentum 0.99 --save_check_point false  --force_save_last true
+python3 train_mic.py --experiment HeLa0003 --batch-size 1 --arch UNet --deep_supervision false --optimizer SGD --scale -1 --weight_loss true  --loss WeightBCEDiceLoss --data_name HeLa --epochs 50 --learning-rate 1e-2  --momentum 0.99 --save_check_point false  --force_save_last true
+
+#The Control group with optimizer
+python3 train_mic.py --experiment HeLa0003 --batch-size 1 --arch UNet --deep_supervision false --optimizer Adam --scale -1 --weight_loss true  --loss WeightBCELoss --data_name HeLa --epochs 50 --learning-rate 3e-4  --momentum 0.9 --save_check_point false  --force_save_last true
+
+
+# 2. ISBI 数据集
+# baselise
+python3 train_mic.py --experiment ISBI0001 --batch-size 1 --arch NestedUNet --deep_supervision false --optimizer Adam --scale -1 --weight_loss false  --loss BCEDiceLoss --data_name ISBI --epochs 50 --learning-rate 3e-4 --save_check_point false --force_save_last true
+python3 train_mic.py --experiment ISBI0002 --batch-size 1 --arch NestedUNet --deep_supervision true --optimizer Adam --scale -1 --weight_loss false  --loss BCEDiceLoss --data_name ISBI --epochs 50 --learning-rate 3e-4 --save_check_point false --force_save_last true
+python3 train_mic.py --experiment ISBI0003 --batch-size 1 --arch UNet --deep_supervision false --optimizer SGD --scale -1 --weight_loss true  --loss WeightBCELoss --data_name ISBI --epochs 50 --learning-rate 1e-2  --momentum 0.99 --save_check_point false  --force_save_last true
+
+# The Control group with weight
+python3 train_mic.py --experiment ISBI0001 --batch-size 1 --arch NestedUNet --deep_supervision false --optimizer Adam --scale -1 --weight_loss true  --loss WeightBCEDiceLoss --data_name ISBI --epochs 50 --learning-rate 3e-4 --save_check_point false --force_save_last true
+python3 train_mic.py --experiment ISBI0001 --batch-size 1 --arch NestedUNet --deep_supervision false --optimizer Adam --scale -1 --weight_loss true  --loss WeightBCELoss --data_name ISBI --epochs 50 --learning-rate 3e-4 --save_check_point false --force_save_last true
+
+python3 train_mic.py --experiment ISBI0001 --batch-size 1 --arch NestedUNet --deep_supervision true --optimizer Adam --scale -1 --weight_loss true  --loss WeightBCEDiceLoss --data_name ISBI --epochs 50 --learning-rate 3e-4 --save_check_point false --force_save_last true
+python3 train_mic.py --experiment ISBI0001 --batch-size 1 --arch NestedUNet --deep_supervision true --optimizer Adam --scale -1 --weight_loss true  --loss WeightBCELoss --data_name ISBI --epochs 50 --learning-rate 3e-4 --save_check_point false --force_save_last true
+
+python3 train_mic.py --experiment ISBI0003 --batch-size 1 --arch UNet --deep_supervision false --optimizer SGD --scale -1 --weight_loss false  --loss BCEWithLogitsLoss --data_name ISBI --epochs 50 --learning-rate 1e-2  --momentum 0.99 --save_check_point false  --force_save_last true
+python3 train_mic.py --experiment ISBI0003 --batch-size 1 --arch UNet --deep_supervision false --optimizer SGD --scale -1 --weight_loss true  --loss WeightBCEDiceLoss --data_name ISBI --epochs 50 --learning-rate 1e-2  --momentum 0.99 --save_check_point false  --force_save_last true
+
+#The Control group with optimizer
+python3 train_mic.py --experiment ISBI0003 --batch-size 1 --arch UNet --deep_supervision false --optimizer Adam --scale -1 --weight_loss true  --loss WeightBCELoss --data_name ISBI --epochs 50 --learning-rate 3e-4  --momentum 0.9 --save_check_point false  --force_save_last true
+
+# 2. DSB 数据集
+# baselise
+python3 train_dsb.py --experiment DSB0001 --batch-size 1 --arch NestedUNet --deep_supervision false --optimizer Adam --scale -1 --weight_loss false  --loss BCEDiceLoss --data_name DSB --epochs 50 --learning-rate 3e-4 --save_check_point false --force_save_last true
+python3 train_dsb.py --experiment DSB0002 --batch-size 1 --arch NestedUNet --deep_supervision true --optimizer Adam --scale -1 --weight_loss false  --loss BCEDiceLoss --data_name DSB --epochs 50 --learning-rate 3e-4 --save_check_point false --force_save_last true
+python3 train_dsb.py --experiment DSB0003 --batch-size 1 --arch UNet --deep_supervision false --optimizer SGD --scale -1 --weight_loss true  --loss WeightBCELoss --data_name DSB --epochs 50 --learning-rate 1e-2  --momentum 0.99 --save_check_point false  --force_save_last true
+
+# The Control group with weight
+python3 train_dsb.py --experiment DSB0001 --batch-size 1 --arch NestedUNet --deep_supervision false --optimizer Adam --scale -1 --weight_loss true  --loss WeightBCEDiceLoss --data_name DSB --epochs 50 --learning-rate 3e-4 --save_check_point false --force_save_last true
+python3 train_dsb.py --experiment DSB0001 --batch-size 1 --arch NestedUNet --deep_supervision false --optimizer Adam --scale -1 --weight_loss true  --loss WeightBCELoss --data_name DSB --epochs 50 --learning-rate 3e-4 --save_check_point false --force_save_last true
+
+python3 train_dsb.py --experiment DSB0001 --batch-size 1 --arch NestedUNet --deep_supervision true --optimizer Adam --scale -1 --weight_loss true  --loss WeightBCEDiceLoss --data_name DSB --epochs 50 --learning-rate 3e-4 --save_check_point false --force_save_last true
+python3 train_dsb.py --experiment DSB0001 --batch-size 1 --arch NestedUNet --deep_supervision true --optimizer Adam --scale -1 --weight_loss true  --loss WeightBCELoss --data_name DSB --epochs 50 --learning-rate 3e-4 --save_check_point false --force_save_last true
+
+python3 train_dsb.py --experiment DSB0003 --batch-size 1 --arch UNet --deep_supervision false --optimizer SGD --scale -1 --weight_loss false  --loss BCEWithLogitsLoss --data_name DSB --epochs 50 --learning-rate 1e-2  --momentum 0.99 --save_check_point false  --force_save_last true
+python3 train_dsb.py --experiment DSB0003 --batch-size 1 --arch UNet --deep_supervision false --optimizer SGD --scale -1 --weight_loss true  --loss WeightBCEDiceLoss --data_name DSB --epochs 50 --learning-rate 1e-2  --momentum 0.99 --save_check_point false  --force_save_last true
+
+#The Control group with optimizer
+python3 train_dsb.py --experiment DSB0003 --batch-size 1 --arch UNet --deep_supervision false --optimizer Adam --scale -1 --weight_loss true  --loss WeightBCELoss --data_name DSB --epochs 50 --learning-rate 3e-4  --momentum 0.9 --save_check_point false  --force_save_last true

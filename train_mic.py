@@ -78,7 +78,8 @@ def get_args():
                         help='loss: ' +
                         ' | '.join(LOSS_NAMES) +
                         ' (default: WeightBCELoss)')
-    parser.add_argument('--weight_loss', default=True, type=str2bool)
+    parser.add_argument('--weight_loss', default=False, type=str2bool)
+    parser.add_argument('--weight_bias', type=float, default=1e-11)
 
     # dataset
     parser.add_argument('--dataset', metavar='DATASET', default='MICDataset',
@@ -304,7 +305,7 @@ def get_criterion(args,model):
         else:
             criterion = nn.BCEWithLogitsLoss()
     else:
-        criterion = losses.__dict__[args.loss]().cuda()
+        criterion = losses.__dict__[args.loss](args).cuda()
 
     return criterion
 

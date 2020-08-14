@@ -99,7 +99,7 @@ def data_generator(x, batch_size=10, epoch=50, seed=2003):
     for batch_x in datagen_generator:
         tmp_x += list(batch_x)
         i += 1
-        if i >= epoch: 
+        if i >= epoch:
             return np.array(tmp_x)
 
 def split_image2_4patch(imgs):
@@ -174,7 +174,7 @@ def weight_map(img, w0=10, sigma=5):
     if segs.max() == 1:
         # if there is only 1 instance plus background,
         # then there are no separations
-        print("hello")
+        print("segs.max() == 1 active!")
         return w_c
     ilabels = range(1, segs.max()+1)
     distmaps = np.stack([ndi.distance_transform_edt(segs != l) for l in ilabels])

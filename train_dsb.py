@@ -79,7 +79,8 @@ def get_args():
                         help='loss: ' +
                         ' | '.join(LOSS_NAMES) +
                         ' (default: CrossEntropyLoss)')
-    parser.add_argument('--weight_loss', default=True, type=str2bool)
+    parser.add_argument('--weight_loss', default=False, type=str2bool)
+    parser.add_argument('--weight_bias', type=float, default=1e-11)
 
     # dataset
     parser.add_argument('--dataset', metavar='DATASET', default='DSBDataset',
@@ -155,14 +156,14 @@ def train_net(net,device,train_loader,args):
     avg_meters = {'loss': AverageMeter()}
 
     with tqdm(total=n_train, desc=f'Epoch {epoch + 1}/{args.epochs}', unit='img') as pbar:
-        for imgs,true_masks,_ in train_loader:
-            weight =None
+        for imgs,true_masks,weight,_ in train_loader:
             assert imgs.shape[1] == net.n_channels, \
                     f'Network has been defined with {net.n_channels} input channels, ' \
                     f'but loaded images have {imgs.shape[1]} channels. Please check that ' \
                     'the images are loaded correctly.'
 
             imgs = imgs.to(device=device, dtype=torch.float32)
+            weight = weight.to(device=device, dtype=torch.float32)
             mask_type = torch.float32 if net.n_classes == 1 else torch.long
             true_masks = true_masks.to(device=device, dtype=mask_type)
 
@@ -201,8 +202,9 @@ def eval_net(net, device, val_loader ,args):
     batch_count = 0
 
     with tqdm(total=n_val, desc='Validation round') as pbar:
-        for imgs,true_masks,_  in val_loader:
+        for imgs,true_masks,weight,_  in val_loader:
             imgs = imgs.to(device=device, dtype=torch.float32)
+            weight = weight.to(device=device, dtype=torch.float32)
             true_masks = true_masks.to(device=device, dtype=mask_type)
 
             with torch.no_grad():
@@ -218,7 +220,10 @@ def eval_net(net, device, val_loader ,args):
                 pred = torch.sigmoid(mask_pred)
                 pred_int = (pred > 0.5).int()
                 pred = (pred > 0.5).float()
-                loss = criterion(mask_pred, true_masks)
+                if args.weight_loss:
+                    loss = criterion(mask_pred, true_masks,weight)
+                else:
+                    loss = criterion(mask_pred, true_masks)
 
                 avg_meters['loss'].update(loss.cpu().item())
                 # for i in range(imgs.shape[0]):
@@ -339,7 +344,7 @@ def get_criterion(args,model):
         else:
             criterion = nn.BCEWithLogitsLoss()
     else:
-        criterion = losses.__dict__[args.loss]().cuda()
+        criterion = losses.__dict__[args.loss](args).cuda()
 
     return criterion
 

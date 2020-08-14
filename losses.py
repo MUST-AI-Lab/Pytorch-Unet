@@ -10,32 +10,35 @@ try:
 except ImportError:
     pass
 
-__all__ = ['BCEDiceLoss', 'LovaszHingeLoss','WeightBCELoss','WeightBCELossNormal']
+__all__ = ['BCEDiceLoss', 'LovaszHingeLoss','WeightBCELoss','WeightBCEDiceLoss']
 
-
-class WeightBCELossNormal(nn.Module):
-    def __init__(self):
+class WeightBCEDiceLoss(nn.Module):
+    def __init__(self,args):
             super().__init__()
+            self.args = args
+            self.weight_bce = WeightBCELoss(args)
 
     def forward(self,output, target, weights=None):
-        output = torch.sigmoid(output)
-        flatten_out =output.contiguous().view(-1)
-        flatten_target = target.contiguous().view(-1)
-        if weights is not None:
-            flatten_weights = weights.contiguous().view(-1)
-        if weights is not None:
-            assert weights.shape==target.shape
-            loss = flatten_target * torch.log(flatten_out) + (1 - flatten_target) * torch.log(1 - flatten_out)
-            loss = loss*flatten_weights
-        else:
-            loss = flatten_target * torch.log(flatten_out) + (1 - flatten_target) * torch.log(1 - flatten_out)
+        bce = self.weight_bce(output, target, weights)
+        dice = self.get_dice(output,target)
+        return 0.5 * bce + dice
 
-        loss = torch.mean(loss)
-        return torch.neg(loss)
+    def get_dice(self,input, target):
+        smooth = 1e-5
+        input = torch.sigmoid(input)
+        num = target.size(0)
+        input = input.view(num, -1)
+        target = target.view(num, -1)
+        intersection = (input * target)
+        dice = (2. * intersection.sum(1) + smooth) / (input.sum(1) + target.sum(1) + smooth)
+        dice = 1 - dice.sum() / num
+        return dice
+
 
 class WeightBCELoss(nn.Module):
-    def __init__(self):
+    def __init__(self,args):
             super().__init__()
+            self.args = args
 
     def forward(self,output, target, weights=None):
         output = torch.sigmoid(output)
@@ -45,19 +48,20 @@ class WeightBCELoss(nn.Module):
             flatten_weights = weights.contiguous().view(-1)
         if weights is not None:
             assert weights.shape==target.shape
-            bias = 1e-11
+            bias = self.args.weight_bias
             loss = flatten_target * torch.log(flatten_out+bias) + (1 - flatten_target) * torch.log(1 - flatten_out+bias)
             loss = loss*flatten_weights
         else:
-            bias = 1e-11
+            bias = self.args.weight_bias
             loss = flatten_target * torch.log(flatten_out+bias) + (1 - flatten_target) * torch.log(1 - flatten_out+bias)
 
         loss = torch.mean(loss)
         return torch.neg(loss)
 
 class BCEDiceLoss(nn.Module):
-    def __init__(self):
+    def __init__(self,args):
         super().__init__()
+        self.args = args
 
     def forward(self, input, target):
         bce = F.binary_cross_entropy_with_logits(input, target)
@@ -73,8 +77,9 @@ class BCEDiceLoss(nn.Module):
 
 
 class LovaszHingeLoss(nn.Module):
-    def __init__(self):
+    def __init__(self,args):
         super().__init__()
+        self.args = args
 
     def forward(self, input, target):
         input = input.squeeze(1)

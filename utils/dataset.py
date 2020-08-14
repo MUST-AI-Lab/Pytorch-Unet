@@ -9,6 +9,7 @@ from PIL import Image
 import utils.mic.dataset_helper as helper
 import cv2
 import os
+import numpy as np
 
 __all__ = ['BasicDataset', 'CarvanaDataset','MICDataset','DSBDataset']
 
@@ -54,32 +55,43 @@ class DSBDataset(torch.utils.data.Dataset):
         self.mask_ext = mask_ext
         self.num_classes = num_classes
         self.transform = transform
+        self.pairs = []
+        self.get_pairs()
 
     def __len__(self):
         return len(self.img_ids)
 
+    def get_pairs(self):
+        print("Loading data from filesystem...")
+        for img_id in self.img_ids:
+            img = cv2.imread(os.path.join(self.img_dir, img_id + self.img_ext))
+            mask = []
+            weight = []
+            for i in range(self.num_classes):
+                tmp = (cv2.imread(os.path.join(self.mask_dir, str(i),
+                            img_id + self.mask_ext), cv2.IMREAD_GRAYSCALE)[..., None]>0).astype(np.float32)
+                # for scale between 0-255
+                tmp = np.squeeze(tmp,axis=-1)
+                mask.append(tmp)
+                weight.append(helper.weight_map(tmp))
+            mask = np.dstack(mask)
+            weight = np.dstack(weight)
+            if self.transform is not None:
+                augmented = self.transform(image=img, mask=mask)
+                img = augmented['image']
+                mask = augmented['mask']
+            img = img.astype('float32') / 255
+
+            img = img.transpose(2, 0, 1)
+            mask = mask.transpose(2, 0, 1)
+            weight = weight.transpose(2, 0, 1)
+            self.pairs.append((img, mask,weight, {'img_id': img_id}))
+
+
     def __getitem__(self, idx):
-        img_id = self.img_ids[idx]
+        img,mask,weight,map_id = self.pairs[idx]
         
-        img = cv2.imread(os.path.join(self.img_dir, img_id + self.img_ext))
-
-        mask = []
-        for i in range(self.num_classes):
-            mask.append(cv2.imread(os.path.join(self.mask_dir, str(i),
-                        img_id + self.mask_ext), cv2.IMREAD_GRAYSCALE)[..., None])
-        mask = np.dstack(mask)
-
-        if self.transform is not None:
-            augmented = self.transform(image=img, mask=mask)
-            img = augmented['image']
-            mask = augmented['mask']
-        
-        img = img.astype('float32') / 255
-        img = img.transpose(2, 0, 1)
-        mask = mask.astype('float32') / 255
-        mask = mask.transpose(2, 0, 1)
-        
-        return img, mask, {'img_id': img_id}
+        return img,mask,weight,map_id
 
 class MICDataset(Dataset):
     def __init__(self,target_set=None,data_path=None,scale=1.0,vis = False):
