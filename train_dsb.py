@@ -79,6 +79,7 @@ def get_args():
                         help='loss: ' +
                         ' | '.join(LOSS_NAMES) +
                         ' (default: CrossEntropyLoss)')
+    parser.add_argument('--weight_loss', default=True, type=str2bool)
 
     # dataset
     parser.add_argument('--dataset', metavar='DATASET', default='DSBDataset',
@@ -155,6 +156,7 @@ def train_net(net,device,train_loader,args):
 
     with tqdm(total=n_train, desc=f'Epoch {epoch + 1}/{args.epochs}', unit='img') as pbar:
         for imgs,true_masks,_ in train_loader:
+            weight =None
             assert imgs.shape[1] == net.n_channels, \
                     f'Network has been defined with {net.n_channels} input channels, ' \
                     f'but loaded images have {imgs.shape[1]} channels. Please check that ' \
@@ -169,10 +171,16 @@ def train_net(net,device,train_loader,args):
             if args.deep_supervision:
                 loss = 0
                 for output in masks_pred:
-                    loss += criterion(output, true_masks)
+                    if args.weight_loss:
+                        loss += criterion(output, true_masks,weight)
+                    else:
+                        loss += criterion(output, true_masks)
                 loss /= len(masks_pred)
             else:
-                loss = criterion(masks_pred, true_masks)
+                if args.weight_loss:
+                    loss = criterion(masks_pred, true_masks,weight)
+                else:
+                    loss = criterion(masks_pred, true_masks)
 
             avg_meters['loss'].update(loss.item())
             pbar.set_postfix(**{'train_loss': avg_meters['loss'].avg})

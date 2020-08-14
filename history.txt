@@ -74,3 +74,26 @@ python3 train_mic.py --experiment MIC00035 --batch-size 1 --arch NestedUNet --de
 python3 train_mic.py --experiment MIC00036 --batch-size 1 --arch UNet --deep_supervision false --optimizer SGD --scale -1 --weight_loss false  --loss BCEWithLogitsLoss --data_name HeLa --epochs 60
 python3 train_mic.py --experiment MIC00037 --batch-size 1 --arch UNet --deep_supervision false --optimizer SGD --scale -1 --weight_loss true  --loss WeightBCELoss --data_name HeLa --epochs 60
 python3 train_mic.py --experiment MIC00038 --batch-size 1 --arch UNet --deep_supervision false --optimizer SGD --scale -1 --weight_loss true  --loss WeightBCELossNormal --data_name HeLa --epochs 60
+
+
+
+1. focus on methods with default value
+python3 train_dsb.py --experiment BASIC0001 --batch-size 10 --arch NestedUNet --deep_supervision false --optimizer Adam  --learning-rate 3e-4 --epochs 50 --weight_loss false
+python3 train_dsb.py --experiment BASIC0002 --batch-size 10 --arch NestedUNet --deep_supervision true --optimizer Adam  --learning-rate 3e-4 --epochs 50 --weight_loss false
+python3 train_dsb.py --experiment BASIC0003 --batch-size 10 --arch UNet --deep_supervision false --optimizer Adam  --learning-rate 1e-2 --momentum 0.99 --epochs 50 --weight_loss false
+
+python3 train_mic.py --experiment BASIC0004 --batch-size 1 --arch NestedUNet --deep_supervision false --optimizer Adam --scale -1 --weight_loss false  --loss BCEWithLogitsLoss --data_name U373 --epochs 50 --learning-rate 3e-4
+python3 train_mic.py --experiment BASIC0005 --batch-size 1 --arch NestedUNet --deep_supervision true --optimizer Adam --scale -1 --weight_loss false  --loss BCEWithLogitsLoss --data_name U373 --epochs 50 --learning-rate 3e-4
+python3 train_mic.py --experiment BASIC0006 --batch-size 1 --arch UNet --deep_supervision false --optimizer SGD --scale -1 --weight_loss true  --loss WeightBCELoss --data_name U373 --epochs 50 --learning-rate 1e-2  --momentum 0.99
+
+python3 train_mic.py --experiment BASIC0007 --batch-size 1 --arch NestedUNet --deep_supervision false --optimizer Adam --scale -1 --weight_loss false  --loss BCEWithLogitsLoss --data_name HeLa --epochs 50 --learning-rate 3e-4
+python3 train_mic.py --experiment BASIC0008 --batch-size 1 --arch NestedUNet --deep_supervision true --optimizer Adam --scale -1 --weight_loss false  --loss BCEWithLogitsLoss --data_name HeLa --epochs 50 --learning-rate 3e-4
+python3 train_mic.py --experiment BASIC0009 --batch-size 1 --arch UNet --deep_supervision false --optimizer SGD --scale -1 --weight_loss true  --loss WeightBCELoss --data_name HeLa --epochs 50 --learning-rate 1e-2  --momentum 0.99
+
+python3 train_mic.py --experiment BASIC0010 --batch-size 1 --arch NestedUNet --deep_supervision false --optimizer Adam --scale -1 --weight_loss false  --loss BCEWithLogitsLoss --data_name ISBI --epochs 50 --learning-rate 3e-4
+python3 train_mic.py --experiment BASIC0011 --batch-size 1 --arch NestedUNet --deep_supervision true --optimizer Adam --scale -1 --weight_loss false  --loss BCEWithLogitsLoss --data_name ISBI --epochs 50 --learning-rate 3e-4
+python3 train_mic.py --experiment BASIC0012 --batch-size 1 --arch UNet --deep_supervision false --optimizer SGD --scale -1 --weight_loss true  --loss WeightBCELoss --data_name ISBI --epochs 50 --learning-rate 1e-2  --momentum 0.99
+
+
+
+
