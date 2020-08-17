@@ -26,46 +26,53 @@ this is the **baseline** of experiment
 **baselise**
 | ID      | methods    | optimizer | lr  | loss |momentum| IOU    |
 | ------- | ---------- | --------- | --- | ----- | --- |------ |
-| HeLa0001 | NestedUNet       | Adam      | 3e-4 | BCEDiceLoss   | 0.9 |
-| HeLa0002 | NestedUNet(sp)       | Adam       | 3e-4 | BCEDiceLoss   | 0.9 |
-| HeLa0001 | UNet       | SGD       | 1e-2 | WeightBCELoss   | 0.99 |
+| HeLa0001 | NestedUNet       | Adam      | 3e-4 | BCEDiceLoss   | 0.9 | 0.8623
+| HeLa0002 | NestedUNet(sp)       | Adam       | 3e-4 | BCEDiceLoss   | 0.9 | 0.8709
+| HeLa0003 | UNet       | SGD       | 1e-2 | WeightBCELoss   | 0.99 |0.8504
 **The Control group with weight**
 | ID      | methods    | optimizer | lr  | loss |momentum| IOU    |
 | ------- | ---------- | --------- | --- | ----- | --- |------ |
-| HeLa0003 | NestedUNet       | Adam      | 3e-4 | WeightBCEDiceLoss   | 0.9 |
-| HeLa0004 | NestedUNet       | Adam      | 3e-4 | WeightBCELoss   | 0.9 |
-| HeLa0005 | NestedUNet(sp)       | Adam       | 3e-4 | WeightBCEDiceLoss   | 0.9 |
-| HeLa0006 | NestedUNet(sp)       | Adam       | 3e-4 | WeightBCELoss   | 0.9 |
-| HeLa0007| UNet       | SGD       | 1e-2 | BCEWithLogitsLoss   | 0.99 |
-| HeLa0008 | UNet       | SGD       | 1e-2 | WeightBCEDiceLoss   | 0.99 |
+| HeLa0004 | NestedUNet       | Adam      | 3e-4 | WeightBCEDiceLoss   | 0.9 |0.8647
+| HeLa0005 | NestedUNet       | Adam      | 3e-4 | WeightBCELoss   | 0.9 |0.8671
+| HeLa0006 | NestedUNet(sp)       | Adam       | 3e-4 | WeightBCEDiceLoss   | 0.9 |0.8644
+| HeLa0007 | NestedUNet(sp)       | Adam       | 3e-4 | WeightBCELoss   | 0.9 |0.8632
+| HeLa0008| UNet       | SGD       | 1e-2 | BCEWithLogitsLoss   | 0.99 |0.8304
+| HeLa0009 | UNet       | SGD       | 1e-2 | WeightBCEDiceLoss   | 0.99 |0.8414
 **The Control group with optimizer**
 | ID      | methods    | optimizer | lr  | loss |momentum| IOU    |
 | ------- | ---------- | --------- | --- | ----- | --- |------ |
-| HeLa0009 | UNet       | Adam       | 3e-4 | WeightBCELoss   | 0.99 |
+| HeLa0010 | UNet       | Adam       | 3e-4 | WeightBCELoss   | 0.99 |0.8419
 
-
+**Test for new method:PyramidUNet**
+| ID      | methods    | optimizer | lr  | loss |momentum| IOU    |
+| ------- | ---------- | --------- | --- | ----- | --- |------ |
+| P_HeLa0003 | PyramidUNet       | SGD       | 1e-2 | WeightBCELoss   | 0.99 |0.8719
 ***
 ### ISBI data set
 **baselise**
 | ID      | methods    | optimizer | lr  | loss |momentum| IOU    |
 | ------- | ---------- | --------- | --- | ----- | --- |------ |
-| ISBI0001 | NestedUNet       | Adam      | 3e-4 | BCEDiceLoss   | 0.9 |
-| ISBI0002 | NestedUNet(sp)       | Adam       | 3e-4 | BCEDiceLoss   | 0.9 |
-| ISBI0001 | UNet       | SGD       | 1e-2 | WeightBCELoss   | 0.99 |
+| ISBI0001 | NestedUNet       | Adam      | 3e-4 | BCEDiceLoss   | 0.9 |0.9048
+| ISBI0002 | NestedUNet(sp)       | Adam       | 3e-4 | BCEDiceLoss   | 0.9 |0.9014
+| ISBI0003 | UNet       | SGD       | 1e-2 | WeightBCELoss   | 0.99 |0.8938
 **The Control group with weight**
 | ID      | methods    | optimizer | lr  | loss |momentum| IOU    |
 | ------- | ---------- | --------- | --- | ----- | --- |------ |
-| ISBI0003 | NestedUNet       | Adam      | 3e-4 | WeightBCEDiceLoss   | 0.9 |
-| ISBI0004 | NestedUNet       | Adam      | 3e-4 | WeightBCELoss   | 0.9 |
-| ISBI0005 | NestedUNet(sp)       | Adam       | 3e-4 | WeightBCEDiceLoss   | 0.9 |
-| ISBI0006 | NestedUNet(sp)       | Adam       | 3e-4 | WeightBCELoss   | 0.9 |
-| ISBI0007| UNet       | SGD       | 1e-2 | BCEWithLogitsLoss   | 0.99 |
-| ISBI0008 | UNet       | SGD       | 1e-2 | WeightBCEDiceLoss   | 0.99 |
+| ISBI0004 | NestedUNet       | Adam      | 3e-4 | WeightBCEDiceLoss   | 0.9 |0.8987
+| ISBI0005 | NestedUNet       | Adam      | 3e-4 | WeightBCELoss   | 0.9 |0.8938
+| ISBI0006 | NestedUNet(sp)       | Adam       | 3e-4 | WeightBCEDiceLoss   | 0.9 |0.8999
+| ISBI0007 | NestedUNet(sp)       | Adam       | 3e-4 | WeightBCELoss   | 0.9 |0.8956
+| ISBI0008| UNet       | SGD       | 1e-2 | BCEWithLogitsLoss   | 0.99 |0.8995
+| ISBI0009 | UNet       | SGD       | 1e-2 | WeightBCEDiceLoss   | 0.99 |0.9023
 **The Control group with optimizer**
 | ID      | methods    | optimizer | lr  | loss |momentum| IOU    |
 | ------- | ---------- | --------- | --- | ----- | --- |------ |
-| ISBI0009 | UNet       | Adam       | 3e-4 | WeightBCELoss   | 0.99 |
+| ISBI0010 | UNet       | Adam       | 3e-4 | WeightBCELoss   | 0.99 |0.8595
 
+**Test for new method:PyramidUNet**
+| ID      | methods    | optimizer | lr  | loss |momentum| IOU    |
+| ------- | ---------- | --------- | --- | ----- | --- |------ |
+| ISBI0003 | UNet       | PyramidUNet       | 1e-2 | WeightBCELoss   | 0.99 |
 ***
 ### DSB data set
 **baselise**
@@ -73,19 +80,27 @@ this is the **baseline** of experiment
 | ------- | ---------- | --------- | --- | ----- | --- |------ |
 | DSB0001 | NestedUNet       | Adam      | 3e-4 | BCEDiceLoss   | 0.9 |
 | DSB0002 | NestedUNet(sp)       | Adam       | 3e-4 | BCEDiceLoss   | 0.9 |
-| ISBI0001 | UNet       | SGD       | 1e-2 | WeightBCELoss   | 0.99 |
+| ISBI0003 | UNet       | SGD       | 1e-2 | WeightBCELoss   | 0.99 |
 **The Control group with weight**
 | ID      | methods    | optimizer | lr  | loss |momentum| IOU    |
 | ------- | ---------- | --------- | --- | ----- | --- |------ |
-| DSB0003 | NestedUNet       | Adam      | 3e-4 | WeightBCEDiceLoss   | 0.9 |
-| DSB0004 | NestedUNet       | Adam      | 3e-4 | WeightBCELoss   | 0.9 |
-| DSB0005 | NestedUNet(sp)       | Adam       | 3e-4 | WeightBCEDiceLoss   | 0.9 |
-| DSB0006 | NestedUNet(sp)       | Adam       | 3e-4 | WeightBCELoss   | 0.9 |
-| DSB0007| UNet       | SGD       | 1e-2 | BCEWithLogitsLoss   | 0.99 |
-| DSB0008 | UNet       | SGD       | 1e-2 | WeightBCEDiceLoss   | 0.99 |
+| DSB0004| NestedUNet       | Adam      | 3e-4 | WeightBCEDiceLoss   | 0.9 |
+| DSB0005 | NestedUNet       | Adam      | 3e-4 | WeightBCELoss   | 0.9 |
+| DSB0006 | NestedUNet(sp)       | Adam       | 3e-4 | WeightBCEDiceLoss   | 0.9 |
+| DSB0007 | NestedUNet(sp)       | Adam       | 3e-4 | WeightBCELoss   | 0.9 |
+| DSB0008| UNet       | SGD       | 1e-2 | BCEWithLogitsLoss   | 0.99 |
+| DSB0009 | UNet       | SGD       | 1e-2 | WeightBCEDiceLoss   | 0.99 |
 **The Control group with optimizer**
 | ID      | methods    | optimizer | lr  | loss |momentum| IOU    |
 | ------- | ---------- | --------- | --- | ----- | --- |------ |
-| DSB0009 | UNet       | Adam       | 3e-4 | WeightBCELoss   | 0.99 |
+| DSB0010 | UNet       | Adam       | 3e-4 | WeightBCELoss   | 0.99 |
+
+**Test for new method:PyramidUNet**
+| ID      | methods    | optimizer | lr  | loss |momentum| IOU    |
+| ------- | ---------- | --------- | --- | ----- | --- |------ |
+| ISBI0003 | PyramidUNet       | SGD       | 1e-2 | WeightBCELoss   | 0.99 |
+
+***
+
 
 
