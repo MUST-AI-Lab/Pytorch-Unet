@@ -59,7 +59,7 @@ class DSBDataset(torch.utils.data.Dataset):
         self.get_pairs()
 
     def __len__(self):
-        return len(self.img_ids)
+        return len(self.pairs)
 
     def get_pairs(self):
         print("Loading data from filesystem...")
@@ -82,15 +82,14 @@ class DSBDataset(torch.utils.data.Dataset):
                 mask = augmented['mask']
             img = img.astype('float32') / 255
 
-            img = img.transpose(2, 0, 1)
-            mask = mask.transpose(2, 0, 1)
-            weight = weight.transpose(2, 0, 1)
+            img = img.transpose(2, 0, 1).astype('float32')
+            mask = mask.transpose(2, 0, 1).astype('float32')
+            weight = weight.transpose(2, 0, 1).astype('float32')
             self.pairs.append((img, mask,weight, {'img_id': img_id}))
 
 
     def __getitem__(self, idx):
         img,mask,weight,map_id = self.pairs[idx]
-        
         return img,mask,weight,map_id
 
 class MICDataset(Dataset):
