@@ -60,6 +60,7 @@ this is the **baseline** of experiment
 | ISBI0001 | NestedUNet       | Adam      | 3e-4 | BCEDiceLoss   | 0.9 |0.9048|0.8786
 | ISBI0002 | NestedUNet(sp)       | Adam       | 3e-4 | BCEDiceLoss   | 0.9 |0.9014|0.8910
 | ISBI0003 | UNet       | SGD       | 1e-2 | WeightBCELoss   | 0.99 |0.8938|0.8906
+
 **The Control group with weight**
 
 | ID      | methods    | optimizer | lr  | loss |momentum| IOU   (max) |IOU(last)    |
@@ -100,6 +101,7 @@ this is the **baseline** of experiment
 | DSB0007 | NestedUNet(sp)       | Adam       | 3e-4 | WeightBCELoss   | 0.9 |0.8210|0.8571
 | DSB0008| UNet       | SGD       | 1e-2 | BCEWithLogitsLoss   | 0.99 |0.8371|0.8302
 | DSB0009 | UNet       | SGD       | 1e-2 | WeightBCEDiceLoss   | 0.99 |0.8449|0.8431
+
 **The Control group with optimizer**
 | ID      | methods    | optimizer | lr  | loss |momentum| IOU(max)    |IOU(last)    |
 | ------- | ---------- | --------- | --- | ----- | --- |------ |--- |
