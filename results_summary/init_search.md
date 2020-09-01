@@ -86,7 +86,7 @@ this is the **baseline** of experiment
 ***
 ### DSB data set
 **baselise**
-| ID      | methods    | optimizer | lr  | loss |momentum| IOU (max)   |IOU(last)    | IOU|
+| ID      | methods    | optimizer | lr  | loss |momentum| IOU (max)   |IOU(last)    | IOU()|
 | ------- | ---------- | --------- | --- | ----- | --- |------ |--- |--|
 | DSB0001 | NestedUNet       | Adam      | 3e-4 | BCEDiceLoss   | 0.9 | 0.8595|0.8589|0.9263
 | DSB0002 | NestedUNet(sp)       | Adam       | 3e-4 | BCEDiceLoss   | 0.9 |0.8589|0.8587|0.9252

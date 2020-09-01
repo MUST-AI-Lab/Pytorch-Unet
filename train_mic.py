@@ -93,7 +93,7 @@ def get_args():
                         help='mask file extension')
     parser.add_argument('--data_dir', default='./data/mic/',
                         help='dataset_location_dir')
-    parser.add_argument('--data_name', default='U373',
+    parser.add_argument('--data_name', default='HeLa',
                         help='name')
     parser.add_argument('-s', '--scale', dest='scale', type=float, default=0.2,
                         help='Downscaling factor of the images')

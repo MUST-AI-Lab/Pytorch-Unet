@@ -5,9 +5,11 @@ import cv2
 from tensorflow import keras
 from tensorflow.keras.preprocessing.image import ImageDataGenerator
 from PIL import Image, ImageSequence
+from skimage import io
 
 DATA_PATH = './data/mic/'
 OUT_PATH = './result/'
+join = os.path.join
 
 def load_from_multi_page_tiff(path_to_image):
     image_np_array_list = []
@@ -136,6 +138,23 @@ def get_DIC_C2DH_HeLa():
     y = np.array(y, dtype = np.float32) / 255
     return x, y
 
+def HeLa_to_png():
+    """
+    get DIC C2DH HeLa dataset where had ground truth data only,and save to png files
+    :return: x_np_array, y_np_array
+    """
+    folder_path_list = ['DIC-C2DH-HeLa/01_GT', 'DIC-C2DH-HeLa/02_GT']
+    x, y = parsing_cell_tracking_data(folder_path_list)
+    get_image_shape(x)
+    y[y > 0] = 255
+    slices = x.shape[0]
+    for i in range(slices):
+        img = x[i]
+        seg = y[i]
+        io.imsave(join(OUT_PATH,'HeLa/IMG/{}.png'.format(i)),img)
+        io.imsave(join(OUT_PATH,'HeLa/GT/{}.png'.format(i)),seg)
+
+
 def get_PhC_C2DH_U373():
     """
     get PhC C2DH U373 dataset where had ground truth data only
@@ -148,6 +167,22 @@ def get_PhC_C2DH_U373():
     x = np.array(x, dtype = np.float32) / 255
     y = np.array(y, dtype = np.float32) / 255
     return x, y
+
+def U373_to_png():
+    """
+    get DIC C2DH HeLa dataset where had ground truth data only,and save to png files
+    :return: x_np_array, y_np_array
+    """
+    folder_path_list = ['PhC-C2DH-U373/01_GT', 'PhC-C2DH-U373/02_GT']
+    x, y = parsing_cell_tracking_data(folder_path_list)
+    get_image_shape(x)
+    y[y > 0] = 255
+    slices = x.shape[0]
+    for i in range(slices):
+        img = x[i]
+        seg = y[i]
+        io.imsave(join(OUT_PATH,'U373/IMG/{}.png'.format(i)),img)
+        io.imsave(join(OUT_PATH,'U373/GT/{}.png'.format(i)),seg)
 
 # weight maps for binary masks
 import scipy.ndimage as ndi
@@ -248,3 +283,6 @@ def delete():
     os.remove(name('X'))
     os.remove(name('Y'))
     os.remove(name('W'))
+
+if __name__ == "__main__":
+    U373_to_png()
