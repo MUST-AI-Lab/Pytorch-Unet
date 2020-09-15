@@ -7,7 +7,7 @@ from tqdm import tqdm
 
 
 def main():
-    img_size = 96
+    img_size = 256
 
     paths = glob('../data/data-science-bowl-2018/stage1_train/*')
 

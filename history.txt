@@ -161,3 +161,8 @@ python3 train_dsb.py --experiment DSB0010 --batch-size 1 --arch UNet --deep_supe
 python3 train_mic.py --experiment P_HeLa0003 --batch-size 1 --arch PyramidUNet --deep_supervision false --optimizer SGD  --weight_loss true  --loss WeightBCELoss --data_name HeLa --epochs 50 --learning-rate 1e-2  --momentum 0.99 --save_check_point false  --force_save_last true
 python3 train_mic.py --experiment P_ISBI0003 --batch-size 1 --arch PyramidUNet --deep_supervision false --optimizer SGD  --weight_loss true  --loss WeightBCELoss --data_name ISBI --epochs 50 --learning-rate 1e-2  --momentum 0.99 --save_check_point false  --force_save_last true
 python3 train_dsb.py --experiment P_DSB0003 --batch-size 1 --arch PyramidUNet --deep_supervision false --optimizer SGD  --weight_loss true  --loss WeightBCELoss --epochs 50 --learning-rate 1e-2  --momentum 0.99 --save_check_point false  --force_save_last true
+
+# baselise256
+python3 train_dsb.py --experiment DSB0001_256 --batch-size 1 --arch NestedUNet --deep_supervision false --optimizer Adam --weight_loss false  --loss BCEDiceLoss  --epochs 50 --learning-rate 3e-4 --save_check_point false --force_save_last true --data_dir dsb2018_256
+python3 train_dsb.py --experiment DSB0002_256 --batch-size 1 --arch NestedUNet --deep_supervision true --optimizer Adam  --weight_loss false  --loss BCEDiceLoss  --epochs 50 --learning-rate 3e-4 --save_check_point false --force_save_last true --data_dir dsb2018_256
+python3 train_dsb.py --experiment DSB0003_256 --batch-size 1 --arch UNet --deep_supervision false --optimizer SGD  --weight_loss true  --loss WeightBCELoss  --epochs 50 --learning-rate 1e-2  --momentum 0.99 --save_check_point false  --force_save_last true --data_dir dsb2018_256

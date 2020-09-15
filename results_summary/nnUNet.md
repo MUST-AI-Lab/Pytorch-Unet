@@ -94,6 +94,7 @@ pic_size=96*96
 |Task095_ISBI|64|0.8279|0.8199|59|
 
 ### DSB data set
+#### in 96 *96 and 603 sample
 | ID |  Minimum feature map     |  Dice(max)    |Dice(last)|modelsize(M):total|
 | ------- |--|---|---|---|
 |Task011_DSB|4|0.9126|0.9117|149|
@@ -103,3 +104,30 @@ pic_size=96*96
 |Task017_DSB|64|0.9300|0.9187|0.8|
 
 **detail  net arch in arch-nnUnet.xslx** 
+
+##2020-09-15
+DSB数据库的原始分辨率波动比较大，从256到620步等。测试分辨率统一为256*256
+#### in 256*256 and 603 sample
+| ID |  Minimum feature map     |  Dice(max)    |Dice(last)|modelsize(M):total|
+| ------- |--|---|---|---|
+|Task021_DSB|4x4|0.9366|0.9136|330|
+|Task022_DSB|8x8|0.9221|0.9112|239|
+|Task024_DSB|16x16|0.9212|0.9154|149|
+|Task026_DSB|32x32|0.9287|0.9121|59|
+|Task027_DSB|64x64|0.9257|0.9250|15.5|
+|Task028_DSB|128x128|0.9234|0.9075|3.8|
+|Task029_DSB|256x256|0.9286|0.9286|0.8|
+
+####resample 30 samples for small dataset test
+#####30a)  Task030_DSB positive:negative = 0.14:0.86
+#####30b) Task031_DSB positive:negative = 0.18:0.82
+#####30c) Task032_DSB positive:negative = 0.26:0.74
+#####30d) Task033_DSB positive:negative = 0.27:0.73
+
+###round 1
+| ID |  Minimum feature map     |  Dice(max)    |Dice(last)|modelsize(M):total|
+| ------- |--|---|---|---|
+|Task030_DSB|8x8|0.9351|0.9252|239|
+|Task031_DSB|8x8|0.8582|0.8411|239|
+|Task032_DSB|8x8|0.8615|0.8541|239|
+|Task033_DSB|8x8|0.9398|0.9271|239|
