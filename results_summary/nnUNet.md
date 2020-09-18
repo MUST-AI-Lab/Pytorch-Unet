@@ -105,7 +105,7 @@ pic_size=96*96
 
 **detail  net arch in arch-nnUnet.xslx** 
 
-##2020-09-17
+## 2020-09-17
 DSB数据库的原始分辨率波动比较大，从256到620步等。测试分辨率统一为256*256
 #### 1. （上升分辨率与原来作对照）in 256*256 and 603 sample
 | ID |  Minimum feature map     |  Dice(max)    |Dice(last)|modelsize(M):total|
