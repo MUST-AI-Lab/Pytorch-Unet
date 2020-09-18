@@ -119,10 +119,10 @@ DSB数据库的原始分辨率波动比较大，从256到620步等。测试分�
 |Task029_DSB|256x256|0.9286|0.9286|0.8|
 
 #### 2. (随机采样)resample 30 samples for small dataset test
-#####30a)  Task030_DSB positive:negative = 0.14:0.86
-#####30b) Task031_DSB positive:negative = 0.18:0.82
-#####30c) Task032_DSB positive:negative = 0.26:0.74
-#####30d) Task033_DSB positive:negative = 0.27:0.73
+##### 30a)  Task030_DSB positive:negative = 0.14:0.86
+##### 30b) Task031_DSB positive:negative = 0.18:0.82
+##### 30c) Task032_DSB positive:negative = 0.26:0.74
+##### 30d) Task033_DSB positive:negative = 0.27:0.73
 
 ### round 1
 | ID |  Minimum feature map     |  Dice(max)    |Dice(last)|modelsize(M):total|
