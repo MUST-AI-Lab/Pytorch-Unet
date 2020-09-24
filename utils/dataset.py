@@ -24,7 +24,6 @@ class DSBDataset(torch.utils.data.Dataset):
             mask_ext (str): Mask file extension.
             num_classes (int): Number of classes.
             transform (Compose, optional): Compose transforms of albumentations. Defaults to None.
-        
         Note:
             Make sure to put the files as the following structure:
             <dataset name>

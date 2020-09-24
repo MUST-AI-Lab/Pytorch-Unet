@@ -166,3 +166,65 @@ positive:negative = 0.22:0.78
 | ------- |--|---|---|---|
 |Task040_DSB|8x8|0.9707|0.9677|239|
 |Task041_DSB|8x8|0.9895|0.9883|239|
+
+## 2020-09-22
+
+### 1. 原始Unet项目与融合Unet++后的项目在Unet上的对比
+**new project**
+| dataset      | methods    | optimizer | lr  | loss |momentum| Dice(best)    |Dice(last)    |
+| ------- | ---------- | --------- | --- | ----- | --- |------ |--|
+| HeLa0008 | UNet       | SGD       | 1e-2 | BCEWithLogitsLoss   | 0.99 |0.9071|0.8941| 
+| ISBI0008 | UNet       | SGD       | 1e-2 | BCEWithLogitsLoss   | 0.99 |0.9470|0.9464|
+| DSB0008 | UNet(96*96)       | SGD       | 1e-2 | BCEWithLogitsLoss   | 0.99 |0.9087|0.9040|
+| DSB0018 | UNet(256*256)       | SGD       | 1e-2 | BCEWithLogitsLoss   | 0.99 |0.6385|0.0874|
+| U3730004 | UNet      | SGD       | 1e-2 | BCEWithLogitsLoss   | 0.99 |0.9397|0.9393|
+
+**origin project**
+| dataset      | methods    | optimizer | lr  | loss |momentum| Dice(best)    |Dice(last)    |
+| ------- | ---------- | --------- | --- | ----- | --- |------ |--|
+| HeLa | UNet       | SGD       | 1e-2 | BCEWithLogitsLoss   | 0.99 |-|0.9081|
+| ISBI | UNet       | SGD       | 1e-2 | BCEWithLogitsLoss   | 0.99 |-|0.9313|
+| DSB(96*96) | UNet       | SGD       | 1e-2 | BCEWithLogitsLoss   | 0.99 |-|0.6955|
+| DSB(256*256) | UNet       | SGD       | 1e-2 | BCEWithLogitsLoss   | 0.99 |-|0.1783|
+| U373 | UNet       | SGD       | 1e-2 | BCEWithLogitsLoss   | 0.99 |-|0.9096|
+
+### 2. 各数据集反转标签作对比
+
+**DSB数据集**
+| ID |  Minimum feature map     |  Dice(max)    |Dice(last)|modelsize(M):total|
+| ------- |--|---|---|---|
+|Task030_DSB|8x8|0.9351|0.9252|239|
+|Task031_DSB|8x8|0.8582|0.8411|239|
+|Task032_DSB|8x8|0.8615|0.8541|239|
+|Task033_DSB|8x8|0.9398|0.9271|239|
+
+做为对照，将标签正负类进行反转：原来0标签为1，1标签为0
+
+| ID |  Minimum feature map     |  Dice(max)    |Dice(last)|modelsize(M):total|
+| ------- |--|---|---|---|
+|Task034_DSB|8x8|0.9747|0.9707|239|
+|Task035_DSB|8x8|0.9769|0.9755|239|
+|Task036_DSB|8x8|0.9552|0.9481|239|
+|Task037_DSB|8x8|0.9398|0.9740|239|
+
+| ID |  Minimum feature map     |  Dice(max)    |Dice(last)|modelsize(M):total|
+| ------- |--|---|---|---|
+|Task038_DSB|8x8|0.8944|0.8892|239|
+|Task039_DSB|8x8|0.8993|0.8479|239|
+
+| ID |  Minimum feature map     |  Dice(max)    |Dice(last)|modelsize(M):total|
+| ------- |--|---|---|---|
+|Task040_DSB|8x8|0.9707|0.9677|239|
+|Task041_DSB|8x8|0.9895|0.9883|239|
+
+**ISBI数据集**
+| ID |  Minimum feature map     |  Dice(max)    |Dice(last)|modelsize(M):total|
+| ------- |--|---|---|---|
+|Task089_ISBI|8x8|0.8268|0.8227|239|
+|Task088_ISBI|8x8|0.9488|0.9471|239|
+
+**HeLa数据集**
+| ID |  Minimum feature map     |  Dice(max)    |Dice(last)|modelsize(M):total|
+| ------- |--|---|---|---|
+|Task002_HeLa|8|0.9379|0.9365|330|
+|Task042_HeLa|8|0.8660|0.8419|330|

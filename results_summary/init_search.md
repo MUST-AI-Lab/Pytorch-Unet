@@ -114,5 +114,3 @@ this is the **baseline** of experiment
 | P_DSB0003 | PyramidUNet       | SGD       | 1e-2 | WeightBCELoss   | 0.99 |0.8391|0.8360
 ***
 
-
-
