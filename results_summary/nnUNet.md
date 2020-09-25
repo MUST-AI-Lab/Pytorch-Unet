@@ -191,6 +191,8 @@ positive:negative = 0.22:0.78
 ### 2. 各数据集反转标签作对比
 
 **DSB数据集**
+#### 1. 混合类别
+下面表格是正常标签
 | ID |  Minimum feature map     |  Dice(max)    |Dice(last)|modelsize(M):total|
 | ------- |--|---|---|---|
 |Task030_DSB|8x8|0.9351|0.9252|239|
@@ -207,6 +209,8 @@ positive:negative = 0.22:0.78
 |Task036_DSB|8x8|0.9552|0.9481|239|
 |Task037_DSB|8x8|0.9398|0.9740|239|
 
+#### 2. 单一类别图片
+在下面的表格中，上面一行是正常标签，下面一行是反转标签
 | ID |  Minimum feature map     |  Dice(max)    |Dice(last)|modelsize(M):total|
 | ------- |--|---|---|---|
 |Task038_DSB|8x8|0.8944|0.8892|239|
@@ -218,12 +222,14 @@ positive:negative = 0.22:0.78
 |Task041_DSB|8x8|0.9895|0.9883|239|
 
 **ISBI数据集**
+在下面的表格中，上面一行是正常标签，下面一行是反转标签
 | ID |  Minimum feature map     |  Dice(max)    |Dice(last)|modelsize(M):total|
 | ------- |--|---|---|---|
 |Task089_ISBI|8x8|0.8268|0.8227|239|
 |Task088_ISBI|8x8|0.9488|0.9471|239|
 
 **HeLa数据集**
+在下面的表格中，上面一行是正常标签，下面一行是反转标签
 | ID |  Minimum feature map     |  Dice(max)    |Dice(last)|modelsize(M):total|
 | ------- |--|---|---|---|
 |Task002_HeLa|8|0.9379|0.9365|330|
