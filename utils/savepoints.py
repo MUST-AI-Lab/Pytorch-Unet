@@ -1,5 +1,13 @@
 
-__all__ = ['AVG']
+__all__ = ['AVG','StillFalse']
+
+class StillFalse:
+    def __init__(self,args):
+        self.current=None
+        self.args = args
+
+    def is_new_best(self,val_log):
+        return False
 
 class AVG:
     def __init__(self,args):

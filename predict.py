@@ -58,7 +58,7 @@ def get_args():
     parser.add_argument('--input', '-i', metavar='INPUT', nargs='+',
                         help='filenames of input images', required=True)
 
-    parser.add_argument('--output', '-o', metavar='INPUT', nargs='+',
+    parser.add_argument('--output', '-o', metavar='ONPUT', nargs='+',
                         help='Filenames of ouput images')
     parser.add_argument('--viz', '-v', action='store_true',
                         help="Visualize the images as they are processed",

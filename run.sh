@@ -1,4 +1,2 @@
-#for UNet  has no deep_supervision implment
-python3 train_mic.py --experiment MIC00036 --batch-size 1 --arch UNet --deep_supervision false --optimizer SGD --scale -1 --weight_loss false  --loss BCEWithLogitsLoss --data_name HeLa --epochs 60
-python3 train_mic.py --experiment MIC00037 --batch-size 1 --arch UNet --deep_supervision false --optimizer SGD --scale -1 --weight_loss true  --loss WeightBCELoss --data_name HeLa --epochs 60
-python3 train_mic.py --experiment MIC00038 --batch-size 1 --arch UNet --deep_supervision false --optimizer SGD --scale -1 --weight_loss true  --loss WeightBCELossNormal --data_name HeLa --epochs 60
+python3 train_dsb.py --experiment DSB0019 --batch-size 1 --arch FCNN --deep_supervision false --optimizer SGD  --weight_loss true  --loss WeightBCELoss  --epochs 50 --learning-rate 1e-2  --momentum 0.99 --save_check_point false  --force_save_last true
+python3 train_dsb.py --experiment DSB0020 --batch-size 1 --arch FCNN --deep_supervision false --optimizer SGD  --weight_loss true  --loss WeightBCELoss  --epochs 50 --learning-rate 1e-2  --momentum 0.99 --save_check_point false  --force_save_last true --data_dir  dsb2018_256

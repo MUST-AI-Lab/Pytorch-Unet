@@ -234,3 +234,7 @@ positive:negative = 0.22:0.78
 | ------- |--|---|---|---|
 |Task002_HeLa|8|0.9379|0.9365|330|
 |Task042_HeLa|8|0.8660|0.8419|330|
+
+### 3. FCNN验证
+| ID |  Minimum feature map     |  Dice(max)    |Dice(last)|modelsize(M):total|
+|Task029_DSB|256x256|0.9286|0.9286|0.8|

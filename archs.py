@@ -2,7 +2,7 @@ import torch
 from torch import nn
 import torch.nn.functional as F
 
-__all__ = ['UNet', 'NestedUNet','PyramidUNet','PyramidNestedUNet']
+__all__ = ['UNet', 'NestedUNet','PyramidUNet','PyramidNestedUNet','FCNN']
 
 
 class VGGBlock(nn.Module):
@@ -24,6 +24,39 @@ class VGGBlock(nn.Module):
         out = self.relu(out)
 
         return out
+
+class FCNN(nn.Module):
+    def __init__(self,args):
+        super().__init__()
+        self.n_channels = args.input_channels
+        self.n_classes = args.num_classes
+        nb_filter = [32]
+        self.pool = nn.MaxPool2d(2, 2)
+        self.up = nn.Upsample(scale_factor=2, mode='bilinear', align_corners=True)
+
+        self.conv0_0 = VGGBlock(self.n_channels, nb_filter[0], nb_filter[0])
+        self.conv0_1 = VGGBlock(nb_filter[0], nb_filter[0], nb_filter[0])
+        self.final = nn.Conv2d(nb_filter[0], self.n_classes, kernel_size=1)
+
+    def ajust_padding(self,x1,x2):
+        diffY = x1.size()[2] - x2.size()[2]
+        diffX = x1.size()[3] - x2.size()[3]
+
+        x2 = F.pad(x2, [diffX // 2, diffX - diffX // 2,
+                            diffY // 2, diffY - diffY // 2])
+        return [x1,x2]
+
+    # def forward(self, input):
+    #     x0_0 = self.pool(self.conv0_0(input))
+    #     x0_1 = self.conv0_1(self.ajust_padding(input,self.up(x0_0))[1])
+    #     output = self.final(x0_1)
+    #     return output
+    def forward(self, input):
+        x0_0 = self.conv0_0(input)
+        x0_1 = self.conv0_1(x0_0)
+        output = self.final(x0_1)
+        return output
+
 
 class UNet(nn.Module):
     def __init__(self,args):

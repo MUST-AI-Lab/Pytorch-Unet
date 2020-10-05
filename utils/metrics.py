@@ -2,6 +2,7 @@ import numpy as np
 from sklearn import metrics
 from torch.autograd import Function
 import torch
+from utils.tools import get_tp_fp_tn_fn
 
 def pixel_error(target,prediction):
     cp = (target==prediction).astype(int)
@@ -9,6 +10,13 @@ def pixel_error(target,prediction):
     W = cp.shape[2]
     sum = cp.sum()
     return 1-sum/(H*W)
+
+def mIOU(target,prediction,n_class):
+    statisic = get_tp_fp_tn_fn(target,prediction,n_class)
+    total_iou = 0.0
+    for key in statisic:
+        total_iou += (statisic[key]['tp']*1.0) / (statisic[key]['tp']+statisic[key]['fp']+statisic[key]['fn']+(-1e-5))
+    return total_iou/n_class
 
 def IOU(target,prediction):
     intersection = np.logical_and(target, prediction)
