@@ -45,6 +45,7 @@ criterion = None
 n_train=0
 n_val=0
 train_dataset=None
+dataset=None
 
 
 def get_args():
@@ -52,7 +53,7 @@ def get_args():
     parser = argparse.ArgumentParser(description='Train the UNet on images and target masks',
                                      formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument('--experiment', default='default')
-    parser.add_argument('-e', '--epochs', metavar='E', type=int, default=100,
+    parser.add_argument('-e', '--epochs', metavar='E', type=int, default=50,
                         help='Number of epochs', dest='epochs')
     parser.add_argument('--continue_epochs', type=int, default=-1,
                         help='resume from a checkpoint epochs', dest='continue_epochs')
@@ -70,7 +71,7 @@ def get_args():
     parser.add_argument('--deep_supervision', default=False, type=str2bool)
     parser.add_argument('--input_channels', default=3, type=int,
                         help='input channels')
-    parser.add_argument('--num_classes', default=19, type=int,
+    parser.add_argument('--num_classes', default=21, type=int,
                         help='number of classes')
 
     # loss
@@ -83,12 +84,12 @@ def get_args():
     parser.add_argument('--weight_bias', type=float, default=1e-11)
 
     # dataset
-    parser.add_argument('--dataset', metavar='DATASET', default='CityScapesDataset',
+    parser.add_argument('--dataset', metavar='DATASET', default='PascalDataset',
                         choices=DATASET_NAMES,
                         help='model architecture: ' +
                         ' | '.join(DATASET_NAMES) +
                         ' (default: BasicDataset)')
-    parser.add_argument('--data_dir', default='./data/city_scapes/',
+    parser.add_argument('--data_dir', default='./data/voc_seg',
                         help='dataset_location_dir')
     parser.add_argument('--num_workers', default=0, type=int)
 
@@ -229,7 +230,7 @@ def eval_net(net, device, val_loader ,args,epoch,nonlinear=softmax_helper):
                     img = imgs[i].cpu().detach().numpy()
                     s_pred = np.argmax(s_pred,axis=0)
                     if not show and epoch%10==0:
-                        val_loader.dataset.showrevert_cp(img,s_true_mask,s_pred)
+                        dataset.showrevert_cp(img,s_true_mask,s_pred)
                         show = True
                     miou= mIOU(s_pred,s_true_mask,net.n_classes)
                     avg_meters['miou'].update(miou)
@@ -276,10 +277,13 @@ def eval_net(net, device, val_loader ,args,epoch,nonlinear=softmax_helper):
     return ret
 
 def get_dataset(args):
-    t_dataset = datasets.__dict__[args.dataset](data_dir='{}/train_split'.format(args.data_dir),default_pairs=True)
-    v_dataset = datasets.__dict__[args.dataset](data_dir='{}/val_split'.format(args.data_dir),default_pairs=True)
-    train_loader = DataLoader(t_dataset, batch_size=args.batchsize, shuffle=True, num_workers=args.num_workers, pin_memory=True)
-    val_loader = DataLoader(v_dataset, batch_size=args.batchsize, shuffle=False, num_workers=args.num_workers, pin_memory=True)
+    global dataset
+    dataset = datasets.__dict__[args.dataset](data_dir=args.data_dir)
+    n_val = int(len(dataset) * args.val)
+    n_train = len(dataset) - n_val
+    train, val = random_split(dataset, [n_train, n_val])
+    train_loader = DataLoader(train, batch_size=args.batchsize, shuffle=True, num_workers=args.num_workers, pin_memory=True)
+    val_loader = DataLoader(val, batch_size=args.batchsize, shuffle=False, num_workers=args.num_workers, pin_memory=True)
     return train_loader,val_loader,n_train,n_val
 
 def get_optimizer(args,model):

@@ -16,7 +16,7 @@ import matplotlib.pyplot as plt
 from tqdm import tqdm
 from utils.tools import mask2onehot,onehot2mask
 
-__all__ = ['BasicDataset', 'CarvanaDataset','MICDataset','DSBDataset','CityScapesLoader']
+__all__ = ['BasicDataset', 'CarvanaDataset','MICDataset','DSBDataset','CityScapesDataset','PascalDataset']
 
 class DSBDataset(torch.utils.data.Dataset):
     def __init__(self, img_ids, img_dir, mask_dir, img_ext, mask_ext, num_classes, transform=None):
@@ -221,8 +221,170 @@ class CarvanaDataset(BasicDataset):
     def __init__(self, imgs_dir, masks_dir, scale=1):
         super().__init__(imgs_dir, masks_dir, scale, mask_suffix='_mask')
 
+class PascalDataset(Dataset):
+    def __init__(self,data_dir,default_pairs = True):
+        self.data_dir = data_dir
+        self.cmap = self.labelcolormap(21)
+        self.class_names = [
+            "B-ground", "Aeroplane","Bicycle","Bird","Boat","Bottle","Bus",
+            "Car","Cat","Chair","Cow","Dining-Table","Dog","Horse",
+            "Motobike","Person","Potted-Plant","Sheep","Sofa","Train","TV/Monitor"
+        ]
 
-class CityScapesLoader(Dataset):
+        if default_pairs:
+            self.get_pairs()
+
+    def __len__(self):
+        return len(self.pairs)
+
+    def uint82bin(self, n, count=8):
+        return ''.join([str((n >> y) & 1) for y in range(count-1, -1, -1)])
+
+    def labelcolormap(self,N):
+        cmap = np.zeros((N, 3), dtype = np.uint8)
+        for i in range(N):
+            r = 0
+            g = 0
+            b = 0
+            id = i
+            for j in range(7):
+                str_id = self.uint82bin(id)
+                r = r ^ ( np.uint8(str_id[-1]) << (7-j))
+                g = g ^ ( np.uint8(str_id[-2]) << (7-j))
+                b = b ^ ( np.uint8(str_id[-3]) << (7-j))
+                id = id >> 3
+            cmap[i, 0] = r
+            cmap[i, 1] = g
+            cmap[i, 2] = b
+        return cmap
+
+    # change label from rbg to class
+    def handle_label(self,label):
+        label_axes = (label.shape[0],label.shape[1])
+        new_label = np.zeros(label_axes).astype(np.uint8)
+        for i in range(label.shape[0]):
+            for j in range(label.shape[1]):
+                new_label[i][j] = self.rgb2label(label[i][j])
+        return new_label
+
+    # map rbg to label
+    def rgb2label(self,rgb):
+        for index in range(len(self.cmap)):
+            u = rgb==self.cmap[index]
+            if u[0] and u[1] and u[2]:
+                return index
+        return 0
+
+    # change label from class label to rbg
+    def revert_label2rgb(self, label):
+        label_axes = (label.shape[0],label.shape[1],3)
+        new_label = np.zeros(label_axes).astype(np.uint8)
+        for i in range(label.shape[0]):
+            for j in range(label.shape[1]):
+                color = self.label2rgb(label[i,j])
+                new_label[i,j,:]=color
+        return new_label
+
+        # map rbg to label
+    def label2rgb(self,label):
+        return self.cmap[label]
+
+    #get pair from npy
+    def get_pairs(self,img="IMG",GT="GT",imshow=False):
+        self.pairs = []
+        print("Loading data from filesystem...")
+        self.data_fns = os.listdir('{}/{}'.format(self.data_dir,img))
+        print("There are {} pictures.".format(len(self.data_fns)))
+        for ids in self.data_fns:
+            ids = ids[:-4]
+            image = np.load('{}/{}/{}.npy'.format(self.data_dir,img,ids ))
+            label = np.load('{}/{}/{}.npy'.format(self.data_dir,GT,ids ))
+            if imshow:
+                rev_label = self.revert_label2rgb(label)
+                image,rev_label = Image.fromarray(image), Image.fromarray(np.uint8(rev_label))
+                fig, axes = plt.subplots(1, 2, figsize=(10, 5))
+                axes[0].imshow(image)
+                axes[1].imshow(rev_label)
+                plt.show()
+            self.pairs.append((image,label))
+
+    def showrevert(self,cityscape,label):
+        rev_label = self.revert_label2rgb(label)
+        if cityscape.shape[0] <4:
+            cityscape=cityscape.transpose(1, 2, 0).astype('float32')
+        cityscape = Image.fromarray(cityscape.astype(np.uint8))
+        rev_label = Image.fromarray(np.uint8(rev_label))
+        fig, axes = plt.subplots(1, 2, figsize=(10, 5))
+        axes[0].imshow(cityscape)
+        axes[1].imshow(rev_label)
+        plt.show()
+
+    def showrevert_cp(self,cityscape,label,pred):
+        rev_label = self.revert_label2rgb(label)
+        rev_pred = self.revert_label2rgb(pred)
+        if cityscape.shape[0] <4:
+            cityscape=cityscape.transpose(1, 2, 0).astype('float32')
+        cityscape = Image.fromarray(cityscape.astype(np.uint8))
+        rev_label = Image.fromarray(np.uint8(rev_label))
+        rev_pred= Image.fromarray(np.uint8(rev_pred))
+        fig, axes = plt.subplots(1, 3, figsize=(10, 5))
+        axes[0].imshow(cityscape)
+        axes[1].imshow(rev_label)
+        axes[2].imshow(rev_pred)
+        plt.show()
+
+    def showrevert_cp2(self,cityscape,label,pred):
+        rev_label = label
+        rev_pred = self.revert_label2rgb(pred)
+        if cityscape.shape[0] <4:
+            cityscape=cityscape.transpose(1, 2, 0).astype('float32')
+        cityscape = Image.fromarray(cityscape.astype(np.uint8))
+        rev_label = Image.fromarray(np.uint8(rev_label))
+        rev_pred= Image.fromarray(np.uint8(rev_pred))
+        fig, axes = plt.subplots(1, 3, figsize=(10, 5))
+        axes[0].imshow(cityscape)
+        axes[1].imshow(rev_label)
+        axes[2].imshow(rev_pred)
+        plt.show()
+
+    def __getitem__(self, idx):
+        cityscape,label = self.pairs[idx]
+        img = cityscape.astype('float32') / 255
+        img = cityscape.transpose(2, 0, 1).astype('float32')
+        # onehot = mask2onehot(label,33)
+        # to onehot
+        return {
+                'image': torch.from_numpy(img).type(torch.FloatTensor),
+                'mask': torch.from_numpy(label).type(torch.IntTensor)
+        }
+
+    # get pair from origin picture
+    def get_origin_pairs(self,img="JPEGImages",GT="SegmentationClass",imshow=False):
+        self.pairs = []
+        print("Loading data from filesystem...")
+        self.data_fns = os.listdir('{}/{}'.format(self.data_dir,img))
+        print("There are {} pictures.".format(len(self.data_fns)))
+        for ids in tqdm(self.data_fns):
+            ids = ids[:-4]
+            image =  Image.open('{}/{}/{}.jpg'.format(self.data_dir,img,ids )).convert("RGB")
+            label = Image.open('{}/{}/{}.png'.format(self.data_dir,GT,ids )).convert("RGB")
+            image = np.array(image)
+            new_label = np.array(label)
+            new_label = self.handle_label(new_label)
+            if imshow:
+                self.showrevert_cp2(image,label,new_label)
+            # handle img format
+            self.pairs.append((image,new_label))
+
+    # in preprocess, save img to files
+    def pairs2files(self,out_path,img="IMG",GT="GT"):
+        i =0
+        for cityscape,label in tqdm(self.pairs):
+            np.save('{}/{}/{}.npy'.format(out_path,img,i ), cityscape)
+            np.save('{}/{}/{}.npy'.format(out_path,GT,i ), label)
+            i +=1
+
+class CityScapesDataset(Dataset):
     def __init__(self,data_dir,default_pairs = True):
         self.data_dir = data_dir
         self.void_classes = [0, 1, 2, 3, 4, 5, 6, 9, 10, 14, 15, 16, 18, 29, 30, -1]
@@ -340,7 +502,7 @@ class CityScapesLoader(Dataset):
             u[0] = self.colors[index][0]-32 < rgb[0] and  rgb[0] < self.colors[index][0]+32
             u[1] = self.colors[index][1]-32< rgb[1] and  rgb[1] < self.colors[index][1]+32
             u[2] = self.colors[index][2]-32 < rgb[2] and  rgb[2] < self.colors[index][2]+32
-            if u[0] and u[1] and [2]:
+            if u[0] and u[1] and u[2]:
                 return self.valid_classes[index]
         return 0
 
