@@ -62,7 +62,7 @@ def get_args():
                         help='a seed  for initial val', dest='seed')
 
     # model
-    parser.add_argument('--arch', '-a', metavar='ARCH', default='FCNN',
+    parser.add_argument('--arch', '-a', metavar='ARCH', default='FCNN2',
                         choices=ARCH_NAMES,
                         help='model architecture: ' +
                         ' | '.join(ARCH_NAMES) +
@@ -148,6 +148,7 @@ def train_net(net,device,train_loader,args,nonlinear=softmax_helper):
     avg_meters = {'loss': AverageMeter()}
 
     with tqdm(total=n_train, desc=f'Epoch {epoch + 1}/{args.epochs}', unit='img') as pbar:
+        iter =0
         for batch in train_loader:
             imgs = batch['image']
             true_masks = batch['mask']
@@ -165,7 +166,7 @@ def train_net(net,device,train_loader,args,nonlinear=softmax_helper):
             masks_pred = net(imgs)
             # compute output
             if net.n_classes > 1:#need to fix
-                masks_pred = nonlinear(masks_pred)
+                #masks_pred = nonlinear(masks_pred)
                 loss = criterion(masks_pred, true_masks)
             else:
                 if args.deep_supervision:
@@ -191,6 +192,9 @@ def train_net(net,device,train_loader,args,nonlinear=softmax_helper):
             nn.utils.clip_grad_value_(net.parameters(), 0.1)
             optimizer.step()
             pbar.update(imgs.shape[0])
+            iter +=1
+            if iter >1100000:
+                break
 
         pbar.close()
     return OrderedDict([('loss', avg_meters['loss'].avg)])
@@ -219,7 +223,7 @@ def eval_net(net, device, val_loader ,args,epoch,nonlinear=softmax_helper):
                 mask_pred = mask_pred[-1]
 
             if net.n_classes > 1:#need to fix
-                mask_pred = nonlinear(mask_pred)
+                #mask_pred = nonlinear(mask_pred)
                 loss = criterion(mask_pred, true_masks)
                 avg_meters['loss'].update(loss.cpu().item())
                 pbar.set_postfix(**{'val_loss': avg_meters['loss'].avg})
@@ -228,8 +232,8 @@ def eval_net(net, device, val_loader ,args,epoch,nonlinear=softmax_helper):
                     s_pred = mask_pred[i].cpu().detach().numpy()
                     img = imgs[i].cpu().detach().numpy()
                     s_pred = np.argmax(s_pred,axis=0)
-                    if not show and epoch%10==0:
-                        val_loader.dataset.showrevert_cp(img,s_true_mask,s_pred)
+                    if not show and epoch%1==0:
+                        val_loader.dataset.showrevert_cp2file(img,s_true_mask,s_pred,args.experiment,epoch)
                         show = True
                     miou= mIOU(s_pred,s_true_mask,net.n_classes)
                     avg_meters['miou'].update(miou)
@@ -278,6 +282,8 @@ def eval_net(net, device, val_loader ,args,epoch,nonlinear=softmax_helper):
 def get_dataset(args):
     t_dataset = datasets.__dict__[args.dataset](data_dir='{}/train_split'.format(args.data_dir),default_pairs=True)
     v_dataset = datasets.__dict__[args.dataset](data_dir='{}/val_split'.format(args.data_dir),default_pairs=True)
+    n_train = len(t_dataset)
+    n_val = len(v_dataset)
     train_loader = DataLoader(t_dataset, batch_size=args.batchsize, shuffle=True, num_workers=args.num_workers, pin_memory=True)
     val_loader = DataLoader(v_dataset, batch_size=args.batchsize, shuffle=False, num_workers=args.num_workers, pin_memory=True)
     return train_loader,val_loader,n_train,n_val

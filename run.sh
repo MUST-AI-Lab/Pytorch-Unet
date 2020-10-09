@@ -1,2 +1,2 @@
-python3 train_dsb.py --experiment DSB0019 --batch-size 1 --arch FCNN --deep_supervision false --optimizer SGD  --weight_loss true  --loss WeightBCELoss  --epochs 50 --learning-rate 1e-2  --momentum 0.99 --save_check_point false  --force_save_last true
-python3 train_dsb.py --experiment DSB0020 --batch-size 1 --arch FCNN --deep_supervision false --optimizer SGD  --weight_loss true  --loss WeightBCELoss  --epochs 50 --learning-rate 1e-2  --momentum 0.99 --save_check_point false  --force_save_last true --data_dir  dsb2018_256
+ python3 train_pascal.py --experiment pascal_init --epoch 30
+ python3 train_city.py --experiment city_init --epoch 30

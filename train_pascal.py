@@ -63,7 +63,7 @@ def get_args():
                         help='a seed  for initial val', dest='seed')
 
     # model
-    parser.add_argument('--arch', '-a', metavar='ARCH', default='FCNN',
+    parser.add_argument('--arch', '-a', metavar='ARCH', default='FCNN2',
                         choices=ARCH_NAMES,
                         help='model architecture: ' +
                         ' | '.join(ARCH_NAMES) +
@@ -149,6 +149,7 @@ def train_net(net,device,train_loader,args,nonlinear=softmax_helper):
     avg_meters = {'loss': AverageMeter()}
 
     with tqdm(total=n_train, desc=f'Epoch {epoch + 1}/{args.epochs}', unit='img') as pbar:
+        iter =0
         for batch in train_loader:
             imgs = batch['image']
             true_masks = batch['mask']
@@ -166,7 +167,7 @@ def train_net(net,device,train_loader,args,nonlinear=softmax_helper):
             masks_pred = net(imgs)
             # compute output
             if net.n_classes > 1:#need to fix
-                masks_pred = nonlinear(masks_pred)
+                #masks_pred = nonlinear(masks_pred)
                 loss = criterion(masks_pred, true_masks)
             else:
                 if args.deep_supervision:
@@ -192,6 +193,9 @@ def train_net(net,device,train_loader,args,nonlinear=softmax_helper):
             nn.utils.clip_grad_value_(net.parameters(), 0.1)
             optimizer.step()
             pbar.update(imgs.shape[0])
+            iter +=1
+            if iter >200000:
+                break
 
         pbar.close()
     return OrderedDict([('loss', avg_meters['loss'].avg)])
@@ -216,49 +220,46 @@ def eval_net(net, device, val_loader ,args,epoch,nonlinear=softmax_helper):
             with torch.no_grad():
                 mask_pred = net(imgs)
 
-            if args.deep_supervision: #choose final
-                mask_pred = mask_pred[-1]
+                if args.deep_supervision: #choose final
+                    mask_pred = mask_pred[-1]
 
-            if net.n_classes > 1:#need to fix
-                mask_pred = nonlinear(mask_pred)
-                loss = criterion(mask_pred, true_masks)
-                avg_meters['loss'].update(loss.cpu().item())
-                pbar.set_postfix(**{'val_loss': avg_meters['loss'].avg})
-                for i in range(imgs.shape[0]):
-                    s_true_mask =  true_masks[i].cpu().detach().numpy()
-                    s_pred = mask_pred[i].cpu().detach().numpy()
-                    img = imgs[i].cpu().detach().numpy()
-                    s_pred = np.argmax(s_pred,axis=0)
-                    if not show and epoch%10==0:
-                        dataset.showrevert_cp(img,s_true_mask,s_pred)
-                        show = True
-                    miou= mIOU(s_pred,s_true_mask,net.n_classes)
-                    avg_meters['miou'].update(miou)
-
-            else:
-                pred = torch.sigmoid(mask_pred)
-                pred_int = (pred > 0.5).int()
-                pred = (pred > 0.5).float()
-                if args.weight_loss:
-                    loss = criterion(mask_pred, true_masks,weight)
-                else:
+                if net.n_classes > 1:#need to fix
                     loss = criterion(mask_pred, true_masks)
-
-                avg_meters['loss'].update(loss.cpu().item())
-                # for i in range(imgs.shape[0]):
-                for i in range(imgs.shape[0]):
-                    s_true_mask =  true_masks[i].cpu().detach().numpy()
-                    s_pred = pred_int[i].cpu().detach().numpy()
-                    if i==0:
-                        vis.visualize_pred_to_file("./result/{}/epoch:{}_{}_{}.png".format(args.experiment,epoch,batch_count,i),imgs[i].cpu().detach().numpy(), s_true_mask, s_pred , title1="Original", title2="True", title3="Pred[0]")
-                        stack = 'val_loss:{},iou:{},pixel_error:{},rand_error:{},dice_coeff:{}'.format(loss.cpu().item(),pixel_error(s_true_mask,s_pred),IOU(s_true_mask,s_pred),rand_error(s_true_mask,s_pred),dice_coeff(pred, true_masks).item())
-                        with open("./result/{}/epoch:{}_{}_{}.txt".format(args.experiment,epoch,batch_count,i),'w') as f:    #设置文件对象
-                            f.write(stack)
-                    avg_meters['pixel_error'].update(pixel_error(s_true_mask,s_pred))
-                    avg_meters['iou'].update(IOU(s_true_mask,s_pred))
-                    avg_meters['rand_error'].update(rand_error(s_true_mask,s_pred))
-                    avg_meters['dice_coeff'].update(dice_coeff(pred, true_masks).item())
-                    pbar.set_postfix(**{'val_loss': avg_meters['loss'].avg,'iou': avg_meters['iou'].avg,'pixel_error': avg_meters['pixel_error'].avg,'rand_error': avg_meters['rand_error'].avg})
+                    avg_meters['loss'].update(loss.cpu().item())
+                    pbar.set_postfix(**{'val_loss': avg_meters['loss'].avg})
+                    for i in range(imgs.shape[0]):
+                        s_true_mask =  true_masks[i].cpu().detach().numpy()
+                        s_pred = mask_pred[i].cpu().detach().numpy()
+                        img = imgs[i].cpu().detach().numpy()
+                        s_pred = np.argmax(s_pred,axis=0)
+                        if not show and epoch%1==0:
+                            dataset.showrevert_cp2file(img,s_true_mask,s_pred,args.experiment,epoch)
+                            show = True
+                        miou= mIOU(s_pred,s_true_mask,net.n_classes)
+                        avg_meters['miou'].update(miou)
+                else:
+                    pred = torch.sigmoid(mask_pred)
+                    pred_int = (pred > 0.5).int()
+                    pred = (pred > 0.5).float()
+                    if args.weight_loss:
+                        loss = criterion(mask_pred, true_masks,weight)
+                    else:
+                        loss = criterion(mask_pred, true_masks)
+                    avg_meters['loss'].update(loss.cpu().item())
+                    # for i in range(imgs.shape[0]):
+                    for i in range(imgs.shape[0]):
+                        s_true_mask =  true_masks[i].cpu().detach().numpy()
+                        s_pred = pred_int[i].cpu().detach().numpy()
+                        if i==0:
+                            vis.visualize_pred_to_file("./result/{}/epoch:{}_{}_{}.png".format(args.experiment,epoch,batch_count,i),imgs[i].cpu().detach().numpy(), s_true_mask, s_pred , title1="Original", title2="True", title3="Pred[0]")
+                            stack = 'val_loss:{},iou:{},pixel_error:{},rand_error:{},dice_coeff:{}'.format(loss.cpu().item(),pixel_error(s_true_mask,s_pred),IOU(s_true_mask,s_pred),rand_error(s_true_mask,s_pred),dice_coeff(pred, true_masks).item())
+                            with open("./result/{}/epoch:{}_{}_{}.txt".format(args.experiment,epoch,batch_count,i),'w') as f:    #设置文件对象
+                                f.write(stack)
+                        avg_meters['pixel_error'].update(pixel_error(s_true_mask,s_pred))
+                        avg_meters['iou'].update(IOU(s_true_mask,s_pred))
+                        avg_meters['rand_error'].update(rand_error(s_true_mask,s_pred))
+                        avg_meters['dice_coeff'].update(dice_coeff(pred, true_masks).item())
+                        pbar.set_postfix(**{'val_loss': avg_meters['loss'].avg,'iou': avg_meters['iou'].avg,'pixel_error': avg_meters['pixel_error'].avg,'rand_error': avg_meters['rand_error'].avg})
             pbar.update(imgs.shape[0])
             batch_count+=1
         pbar.close()

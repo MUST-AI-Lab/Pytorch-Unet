@@ -79,3 +79,15 @@ def get_tp_fp_tn_fn(predict,gt,n_class):
         statisic[i]['fn']=np.sum(i_a) -np.sum(i_tn)
         statisic[i]['tn']= np.prod(predict.shape) - statisic[i]['tp'] - statisic[i]['fp']-statisic[i]['fn']
     return statisic
+
+def maybe_mkdir_p(directory):
+    directory = os.path.abspath(directory)
+    splits = directory.split("/")[1:]
+    for i in range(0, len(splits)):
+        if not os.path.isdir(os.path.join("/", *splits[:i+1])):
+            try:
+                os.mkdir(os.path.join("/", *splits[:i+1]))
+            except FileExistsError:
+                # this can sometimes happen when two jobs try to create the same directory at the same time,
+                # especially on network drives.
+                print("WARNING: Folder %s already existed and does not need to be created" % directory)

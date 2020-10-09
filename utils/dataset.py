@@ -256,6 +256,7 @@ class PascalDataset(Dataset):
             cmap[i, 0] = r
             cmap[i, 1] = g
             cmap[i, 2] = b
+        # cmap[:] = cmap[::-1]
         return cmap
 
     # change label from rbg to class
@@ -322,6 +323,9 @@ class PascalDataset(Dataset):
     def showrevert_cp(self,cityscape,label,pred):
         rev_label = self.revert_label2rgb(label)
         rev_pred = self.revert_label2rgb(pred)
+        if cityscape.max()<1.1:
+            cityscape *= 255
+            cityscape+=128
         if cityscape.shape[0] <4:
             cityscape=cityscape.transpose(1, 2, 0).astype('float32')
         cityscape = Image.fromarray(cityscape.astype(np.uint8))
@@ -333,9 +337,29 @@ class PascalDataset(Dataset):
         axes[2].imshow(rev_pred)
         plt.show()
 
+    def showrevert_cp2file(self,cityscape,label,pred,experiment,epoch=0):
+        rev_label = self.revert_label2rgb(label)
+        rev_pred = self.revert_label2rgb(pred)
+        if cityscape.max()<1.1:
+            cityscape *= 255
+            cityscape+=128
+        if cityscape.shape[0] <4:
+            cityscape=cityscape.transpose(1, 2, 0).astype('float32')
+        cityscape = Image.fromarray(cityscape.astype(np.uint8))
+        rev_label = Image.fromarray(np.uint8(rev_label))
+        rev_pred= Image.fromarray(np.uint8(rev_pred))
+        fig, axes = plt.subplots(1, 3, figsize=(10, 5))
+        axes[0].imshow(cityscape)
+        axes[1].imshow(rev_label)
+        axes[2].imshow(rev_pred)
+        plt.savefig("{}/{}/{}.png".format('result',experiment,epoch))
+
     def showrevert_cp2(self,cityscape,label,pred):
         rev_label = label
         rev_pred = self.revert_label2rgb(pred)
+        if cityscape.max()<1:
+            cityscape *= 255
+            cityscape+=128
         if cityscape.shape[0] <4:
             cityscape=cityscape.transpose(1, 2, 0).astype('float32')
         cityscape = Image.fromarray(cityscape.astype(np.uint8))
@@ -348,9 +372,9 @@ class PascalDataset(Dataset):
         plt.show()
 
     def __getitem__(self, idx):
-        cityscape,label = self.pairs[idx]
-        img = cityscape.astype('float32') / 255
-        img = cityscape.transpose(2, 0, 1).astype('float32')
+        img,label = self.pairs[idx]
+        img = img.transpose(2, 0, 1).astype('float32')
+        img = (img.astype('float32')-128) / 255
         # onehot = mask2onehot(label,33)
         # to onehot
         return {
@@ -541,6 +565,9 @@ class CityScapesDataset(Dataset):
 
     def showrevert(self,cityscape,label):
         rev_label = self.revert_label2rgb(label)
+        if cityscape.max()<1.1:
+            cityscape *= 255
+            cityscape+=128
         if cityscape.shape[0] <4:
             cityscape=cityscape.transpose(1, 2, 0).astype('float32')
         cityscape = Image.fromarray(cityscape.astype(np.uint8))
@@ -553,6 +580,9 @@ class CityScapesDataset(Dataset):
     def showrevert_cp(self,cityscape,label,pred):
         rev_label = self.revert_label2rgb(label)
         rev_pred = self.revert_label2rgb(pred)
+        if cityscape.max()<1.1:
+            cityscape *= 255
+            cityscape+=128
         if cityscape.shape[0] <4:
             cityscape=cityscape.transpose(1, 2, 0).astype('float32')
         cityscape = Image.fromarray(cityscape.astype(np.uint8))
@@ -563,6 +593,24 @@ class CityScapesDataset(Dataset):
         axes[1].imshow(rev_label)
         axes[2].imshow(rev_pred)
         plt.show()
+
+    def showrevert_cp2file(self,cityscape,label,pred,experiment,epoch=0):
+        rev_label = self.revert_label2rgb(label)
+        rev_pred = self.revert_label2rgb(pred)
+        if cityscape.max()<1.1:
+            cityscape *= 255
+            cityscape+=128
+        if cityscape.shape[0] <4:
+            cityscape=cityscape.transpose(1, 2, 0).astype('float32')
+        cityscape = Image.fromarray(cityscape.astype(np.uint8))
+        rev_label = Image.fromarray(np.uint8(rev_label))
+        rev_pred= Image.fromarray(np.uint8(rev_pred))
+        fig, axes = plt.subplots(1, 3, figsize=(10, 5))
+        axes[0].imshow(cityscape)
+        axes[1].imshow(rev_label)
+        axes[2].imshow(rev_pred)
+        plt.savefig("{}/{}/{}.png".format('result',experiment,epoch))
+        #plt.show()
 
     # get pair from origin picture
     def get_origin_pairs(self):
@@ -577,9 +625,9 @@ class CityScapesDataset(Dataset):
             self.pairs.append((cityscape,label))
 
     def __getitem__(self, idx):
-        cityscape,label = self.pairs[idx]
-        img = cityscape.astype('float32') / 255
-        img = cityscape.transpose(2, 0, 1).astype('float32')
+        img,label = self.pairs[idx]
+        img = img.transpose(2, 0, 1).astype('float32')
+        img = (img.astype('float32')-128) / 255
         # onehot = mask2onehot(label,33)
         # to onehot
         return {
