@@ -61,6 +61,8 @@ def get_args():
                         help='Batch size', dest='batchsize')
     parser.add_argument('--seed', type=int, default=45,
                         help='a seed  for initial val', dest='seed')
+    parser.add_argument('--device', default='cuda',
+                        help='choose device', dest='device')
 
     # model
     parser.add_argument('--arch', '-a', metavar='ARCH', default='FCNN2',
@@ -194,7 +196,7 @@ def train_net(net,device,train_loader,args,nonlinear=softmax_helper):
             optimizer.step()
             pbar.update(imgs.shape[0])
             iter +=1
-            if iter >200000:
+            if iter >20000:
                 break
 
         pbar.close()
@@ -330,7 +332,10 @@ def get_criterion(args,model):
 if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
     args = get_args()
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    if args.device == 'cuda':
+        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    else:
+        device = torch.device('cpu')
     logging.info(f'Using device {device}')
 
     #set seed
