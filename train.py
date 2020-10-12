@@ -72,7 +72,7 @@ def get_args():
     parser.add_argument('--deep_supervision', default=False, type=str2bool)
     parser.add_argument('--input_channels', default=3, type=int,
                         help='input channels')
-    parser.add_argument('--num_classes', default=21, type=int,
+    parser.add_argument('--num_classes', default=19, type=int,
                         help='number of classes')
 
     # loss
@@ -85,12 +85,12 @@ def get_args():
     parser.add_argument('--weight_bias', type=float, default=1e-11)
 
     # dataset
-    parser.add_argument('--dataset', metavar='DATASET', default='PascalDataset',
+    parser.add_argument('--dataset', metavar='DATASET', default='CityScapesDataset',
                         choices=DATASET_NAMES,
                         help='model architecture: ' +
                         ' | '.join(DATASET_NAMES) +
                         ' (default: BasicDataset)')
-    parser.add_argument('--data_dir', default='./data/voc_seg',
+    parser.add_argument('--data_dir', default='./data/city_scapes',
                         help='dataset_location_dir')
     parser.add_argument('--num_workers', default=0, type=int)
     #for dsb dataset compact
@@ -211,15 +211,22 @@ def train_net(net,device,train_loader,args,nonlinear=softmax_helper):
             optimizer.step()
             pbar.update(imgs.shape[0])
             iter +=1
-            if iter >20000:
+            if iter >1000000:
                 break
 
         pbar.close()
     return OrderedDict([('loss', avg_meters['loss'].avg)])
 
-def eval_net(net, device, val_loader ,args,epoch,nonlinear=softmax_helper):
+def eval_net(net, device, val_loader ,args,epoch,nonlinear=softmax_helper,miou_split=True):
     """Evaluation without the densecrf with the dice coefficient"""
-    avg_meters = {'loss': AverageMeter(),'iou': AverageMeter(),'pixel_error': AverageMeter(),'rand_error': AverageMeter(),'dice_coeff':AverageMeter(),'miou': AverageMeter()}
+    if net.n_classes > 1:
+        avg_meters = {'loss': AverageMeter(),'miou': AverageMeter()}
+        if miou_split:# show detail for iou of each class
+            for item in datamaker.class_names:
+                avg_meters["iou_{}".format(item)] = AverageMeter()
+    else:
+        avg_meters = {'loss': AverageMeter(),'iou': AverageMeter(),'pixel_error': AverageMeter(),'rand_error': AverageMeter(),'dice_coeff':AverageMeter()}
+
     net.eval()
     mask_type = torch.float32 if net.n_classes == 1 else torch.long
     batch_count = 0
@@ -244,7 +251,7 @@ def eval_net(net, device, val_loader ,args,epoch,nonlinear=softmax_helper):
                 if args.deep_supervision: #choose final
                     mask_pred = mask_pred[-1]
 
-                if net.n_classes > 1:#need to fix
+                if net.n_classes > 1:
                     loss = criterion(mask_pred, true_masks)
                     avg_meters['loss'].update(loss.cpu().item())
                     pbar.set_postfix(**{'val_loss': avg_meters['loss'].avg})
@@ -256,8 +263,12 @@ def eval_net(net, device, val_loader ,args,epoch,nonlinear=softmax_helper):
                         if not show:
                             datamaker.showrevert_cp2file(img,s_true_mask,s_pred,args.experiment,epoch)
                             show = True
-                        miou= mIOU(s_pred,s_true_mask,net.n_classes)
+                        miou,statisic= mIOU(s_pred,s_true_mask,net.n_classes)
                         avg_meters['miou'].update(miou)
+                        if miou_split:
+                            for key in statisic:
+                                iou = (statisic[key]['tp']*1.0) / (statisic[key]['tp']+statisic[key]['fp']+statisic[key]['fn']+(-1e-5))
+                                avg_meters["iou_{}".format(datamaker.class_names[key])].update(iou)
                 else:
                     pred = torch.sigmoid(mask_pred)
                     pred_int = (pred > 0.5).int()
@@ -292,6 +303,9 @@ def eval_net(net, device, val_loader ,args,epoch,nonlinear=softmax_helper):
     if net.n_classes >1:
         ret['loss'] = avg_meters['loss'].avg
         ret['mIOU'] = avg_meters['miou'].avg
+        if miou_split:# show detail for iou of each class
+            for item in datamaker.class_names:
+                ret["iou_{}".format(item)] = avg_meters["iou_{}".format(item)].avg
     else:
         ret['loss'] = avg_meters['loss'].avg
         ret['iou'] = avg_meters['iou'].avg

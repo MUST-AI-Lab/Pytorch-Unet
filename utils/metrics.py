@@ -16,7 +16,7 @@ def mIOU(target,prediction,n_class):
     total_iou = 0.0
     for key in statisic:
         total_iou += (statisic[key]['tp']*1.0) / (statisic[key]['tp']+statisic[key]['fp']+statisic[key]['fn']+(-1e-5))
-    return total_iou/n_class
+    return total_iou/n_class,statisic
 
 def IOU(target,prediction):
     intersection = np.logical_and(target, prediction)
