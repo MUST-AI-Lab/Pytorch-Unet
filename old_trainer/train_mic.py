@@ -61,7 +61,7 @@ def get_args():
                         help='a seed  for initial val', dest='seed')
 
     # model
-    parser.add_argument('--arch', '-a', metavar='ARCH', default='UNet',
+    parser.add_argument('--arch', '-a', metavar='ARCH', default='FCNN',
                         choices=ARCH_NAMES,
                         help='model architecture: ' +
                         ' | '.join(ARCH_NAMES) +
@@ -93,9 +93,9 @@ def get_args():
                         help='mask file extension')
     parser.add_argument('--data_dir', default='./data/mic/',
                         help='dataset_location_dir')
-    parser.add_argument('--data_name', default='HeLa',
+    parser.add_argument('--target_set', default='HeLa',
                         help='name')
-    parser.add_argument('-s', '--scale', dest='scale', type=float, default=0.2,
+    parser.add_argument('-s', '--scale', dest='scale', type=float, default=-1,
                         help='Downscaling factor of the images')
     parser.add_argument('--num_workers', default=0, type=int)
 
@@ -260,7 +260,7 @@ def eval_net(net, device, val_loader ,args):
     return ret
 
 def get_dataset(args):
-    dataset = datasets.__dict__[args.dataset](target_set=args.data_name,
+    dataset = datasets.__dict__[args.dataset](target_set=args.target_set,
                                            data_path=args.data_dir,scale=args.scale)
     n_val = int(len(dataset) * args.val)
     n_train = len(dataset) - n_val
@@ -353,7 +353,8 @@ if __name__ == '__main__':
     # cudnn.benchmark = True
 
     # init data set here: there two kinds of  data set mic and dsb_2018_96
-    train_loader,val_loader,n_train,n_val = get_dataset(args)
+    datamaker = datasets.__dict__[args.dataset](args)
+    train_loader,val_loader,n_train,n_val = datamaker(args)
     logging.info(f'''Starting training:
         args:          {args}
     ''')

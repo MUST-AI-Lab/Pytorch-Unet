@@ -15,12 +15,16 @@ from PIL import Image
 import matplotlib.pyplot as plt
 from tqdm import tqdm
 from utils.tools import mask2onehot,onehot2mask
+from albumentations.augmentations import transforms
+from albumentations.core.composition import Compose, OneOf
+from sklearn.model_selection import train_test_split
+from torch.utils.data import DataLoader, random_split
 
 __all__ = ['BasicDataset', 'CarvanaDataset','MICDataset','DSBDataset','CityScapesDataset','PascalDataset','Cam2007Dataset']
 
 class Cam2007Dataset(Dataset):
-    def __init__(self,data_dir,default_pairs = True):
-        self.data_dir = data_dir
+    def __init__(self,args,default_pairs = True):
+        self.data_dir =args.data_dir
         self.cmap = self.labelcolormap(32)
         self.class_names = [
             "Animal", "Archway","Bicyclist","Bridge","Building","Car","CartLuggagePram",
@@ -30,8 +34,15 @@ class Cam2007Dataset(Dataset):
             "VegetationMisc","Void","Wall"
         ]
 
-        if default_pairs:
-            self.get_pairs()
+    def __call__(self,args):
+        dataset = PascalDataset(args)
+        dataset.get_pairs()
+        n_val = int(len(dataset) * args.val)
+        n_train = len(dataset) - n_val
+        train, val = random_split(dataset, [n_train, n_val])
+        train_loader = DataLoader(train, batch_size=args.batchsize, shuffle=True, num_workers=args.num_workers, pin_memory=True)
+        val_loader = DataLoader(val, batch_size=args.batchsize, shuffle=False, num_workers=args.num_workers, pin_memory=True)
+        return train_loader,val_loader,n_train,n_val
 
     def __len__(self):
         return len(self.pairs)
@@ -219,7 +230,7 @@ class Cam2007Dataset(Dataset):
             i +=1
 
 class DSBDataset(torch.utils.data.Dataset):
-    def __init__(self, img_ids, img_dir, mask_dir, img_ext, mask_ext, num_classes, transform=None):
+    def __init__(self,args, transform=None):
         """
         Args:
             img_ids (list): Image ids.
@@ -252,9 +263,68 @@ class DSBDataset(torch.utils.data.Dataset):
                 |   ├── ...
                 ...
         """
+        self.args =args
+
+    def __call__(self,args):
+        # Data loading code
+        img_ids = glob(os.path.join('data', args.data_dir, 'images', '*' + args.img_ext))
+        img_ids = [os.path.splitext(os.path.basename(p))[0] for p in img_ids]
+
+        train_img_ids, val_img_ids = train_test_split(img_ids, test_size=args.val, random_state=41)
+
+        train_transform = Compose([
+            transforms.RandomRotate90(),
+            transforms.Flip(),
+            OneOf([
+                transforms.HueSaturationValue(),
+                transforms.RandomBrightness(),
+                transforms.RandomContrast(),
+            ], p=1),
+            transforms.Resize(args.input_h, args.input_w),
+            transforms.Normalize(),
+        ])
+
+        val_transform = Compose([
+            transforms.Resize(args.input_h, args.input_w),
+            transforms.Normalize(),
+        ])
+        train_dataset = DSBDataset(args)
+        train_dataset.init(
+            img_ids=train_img_ids,
+            img_dir=os.path.join('data', args.data_dir, 'images'),
+            mask_dir=os.path.join('data', args.data_dir, 'masks'),
+            img_ext=args.img_ext,
+            mask_ext=args.mask_ext,
+            num_classes=args.num_classes,
+            transform=None)
+        val_dataset =  DSBDataset(args)
+        val_dataset.init(
+            img_ids=val_img_ids,
+            img_dir=os.path.join('data', args.data_dir, 'images'),
+            mask_dir=os.path.join('data', args.data_dir, 'masks'),
+            img_ext=args.img_ext,
+            mask_ext=args.mask_ext,
+            num_classes=args.num_classes,
+            transform=None)
+
+        train_loader = torch.utils.data.DataLoader(
+            train_dataset,
+            batch_size=args.batchsize,
+            shuffle=True,
+            num_workers=args.num_workers,
+            drop_last=True)
+        val_loader = torch.utils.data.DataLoader(
+            val_dataset,
+            batch_size=args.batchsize,
+            shuffle=False,
+            num_workers=args.num_workers,
+            drop_last=False)
+        return train_loader,val_loader,len(train_dataset),len(val_dataset)
+
+    def init(self,img_ids, img_dir, mask_dir, img_ext, mask_ext, num_classes, transform=None):
         self.img_ids = img_ids
         self.img_dir = img_dir
-        self.mask_dir = mask_dir
+        self.mask_dir =mask_dir
         self.img_ext = img_ext
         self.mask_ext = mask_ext
         self.num_classes = num_classes
@@ -294,19 +364,34 @@ class DSBDataset(torch.utils.data.Dataset):
 
     def __getitem__(self, idx):
         img,mask,weight,map_id = self.pairs[idx]
-        return img,mask,weight,map_id
+        return {
+                'image': torch.from_numpy(img).type(torch.FloatTensor),
+                'mask': torch.from_numpy(mask).type(torch.FloatTensor),
+                'weight':torch.from_numpy(weight).type(torch.FloatTensor)
+            }
 
 class MICDataset(Dataset):
-    def __init__(self,target_set=None,data_path=None,scale=1.0,vis = False):
-        assert target_set is not None,"target_set should not None"
-        assert data_path is not None,"data_path should not None"
-        self.target_set = target_set
+    def __init__(self,args,vis = False):
+        assert args.target_set is not None,"target_set should not None"
+        assert args.data_dir is not None,"data_path should not None"
+        self.target_set = args.target_set
         self.pairs = []
-        self.scale = scale
+        self.scale = args.scale
         self.vis = vis
-        helper.DATA_PATH=data_path
+        helper.DATA_PATH=args.data_dir
+
+    def init(self):
         self.get_pairs()
 
+    def __call__(self,args):
+        dataset =MICDataset(args)
+        dataset.init()
+        n_val = int(len(dataset) * args.val)
+        n_train = len(dataset) - n_val
+        train, val = random_split(dataset, [n_train, n_val])
+        train_loader = DataLoader(train, batch_size=args.batchsize, shuffle=True, num_workers=args.num_workers, pin_memory=True)
+        val_loader = DataLoader(val, batch_size=args.batchsize, shuffle=False, num_workers=8, pin_memory=True, drop_last=True)
+        return train_loader,val_loader,n_train,n_val
 
     def __len__(self):
         return len(self.pairs)
@@ -361,14 +446,14 @@ class MICDataset(Dataset):
             }
 
 class BasicDataset(Dataset):
-    def __init__(self, imgs_dir, masks_dir, scale=1, mask_suffix=''):
-        self.imgs_dir = imgs_dir
-        self.masks_dir = masks_dir
-        self.scale = scale
-        self.mask_suffix = mask_suffix
-        assert 0 < scale <= 1, 'Scale must be between 0 and 1'
+    def __init__(self, args):
+        self.imgs_dir = args.imgs_dir
+        self.masks_dir = args.masks_dir
+        self.scale = args.scale
+        self.mask_suffix = args.mask_suffix
+        assert 0 < args.scale <= 1, 'Scale must be between 0 and 1'
 
-        self.ids = [splitext(file)[0] for file in listdir(imgs_dir)
+        self.ids = [splitext(file)[0] for file in listdir(args.imgs_dir)
                     if not file.startswith('.')]
         logging.info(f'Creating dataset with {len(self.ids)} examples')
 
@@ -418,12 +503,12 @@ class BasicDataset(Dataset):
         }
 
 class CarvanaDataset(BasicDataset):
-    def __init__(self, imgs_dir, masks_dir, scale=1):
-        super().__init__(imgs_dir, masks_dir, scale, mask_suffix='_mask')
+    def __init__(self, args):
+        super().__init__(args)
 
 class PascalDataset(Dataset):
-    def __init__(self,data_dir,default_pairs = True):
-        self.data_dir = data_dir
+    def __init__(self,args,default_pairs = True):
+        self.data_dir = args.data_dir
         self.cmap = self.labelcolormap(21)
         self.class_names = [
             "B-ground", "Aeroplane","Bicycle","Bird","Boat","Bottle","Bus",
@@ -431,11 +516,18 @@ class PascalDataset(Dataset):
             "Motobike","Person","Potted-Plant","Sheep","Sofa","Train","TV/Monitor"
         ]
 
-        if default_pairs:
-            self.get_pairs()
-
     def __len__(self):
         return len(self.pairs)
+
+    def __call__(self,args):
+        dataset = PascalDataset(args)
+        dataset.get_pairs()
+        n_val = int(len(dataset) * args.val)
+        n_train = len(dataset) - n_val
+        train, val = random_split(dataset, [n_train, n_val])
+        train_loader = DataLoader(train, batch_size=args.batchsize, shuffle=True, num_workers=args.num_workers, pin_memory=True)
+        val_loader = DataLoader(val, batch_size=args.batchsize, shuffle=False, num_workers=args.num_workers, pin_memory=True)
+        return train_loader,val_loader,n_train,n_val
 
     def uint82bin(self, n, count=8):
         return ''.join([str((n >> y) & 1) for y in range(count-1, -1, -1)])
@@ -609,8 +701,8 @@ class PascalDataset(Dataset):
             i +=1
 
 class CityScapesDataset(Dataset):
-    def __init__(self,data_dir,default_pairs = True):
-        self.data_dir = data_dir
+    def __init__(self,args,default_pairs = True):
+        self.args = args
         self.void_classes = [0, 1, 2, 3, 4, 5, 6, 9, 10, 14, 15, 16, 18, 29, 30, -1]
         # self.valid_classes = [
         #     7,
@@ -697,11 +789,23 @@ class CityScapesDataset(Dataset):
         [0, 0, 230],
         [119, 11, 32]]
 
-        if default_pairs:
-            self.get_pairs()
-
     def __len__(self):
         return len(self.pairs)
+
+    def init(self,data_dir):
+        self.data_dir = data_dir
+        self.get_pairs()
+
+    def __call__(self,args):
+        t_dataset = CityScapesDataset(args)
+        t_dataset.init('{}/train_split'.format(args.data_dir))
+        v_dataset = CityScapesDataset(args)
+        v_dataset.init('{}/val_split'.format(args.data_dir))
+        n_train = len(t_dataset)
+        n_val = len(v_dataset)
+        train_loader = DataLoader(t_dataset, batch_size=args.batchsize, shuffle=True, num_workers=args.num_workers, pin_memory=True)
+        val_loader = DataLoader(v_dataset, batch_size=args.batchsize, shuffle=False, num_workers=args.num_workers, pin_memory=True)
+        return train_loader,val_loader,n_train,n_val
 
     # split label and img from because there only one pic to keep img and label
     def split_image(self,image):
@@ -832,7 +936,8 @@ class CityScapesDataset(Dataset):
         # to onehot
         return {
                 'image': torch.from_numpy(img).type(torch.FloatTensor),
-                'mask': torch.from_numpy(label).type(torch.IntTensor)
+                'mask': torch.from_numpy(label).type(torch.IntTensor),
+                'weight':torch.from_numpy(label).type(torch.IntTensor)
         }
 
     # in preprocess, save img to files

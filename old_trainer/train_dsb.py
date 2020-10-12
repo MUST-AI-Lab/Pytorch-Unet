@@ -156,12 +156,14 @@ def train_net(net,device,train_loader,args):
     avg_meters = {'loss': AverageMeter()}
 
     with tqdm(total=n_train, desc=f'Epoch {epoch + 1}/{args.epochs}', unit='img') as pbar:
-        for imgs,true_masks,weight,_ in train_loader:
+        for batch in train_loader:
+            imgs = batch["image"]
+            weight = batch["weight"]
+            true_masks = batch['mask']
             assert imgs.shape[1] == net.n_channels, \
                     f'Network has been defined with {net.n_channels} input channels, ' \
                     f'but loaded images have {imgs.shape[1]} channels. Please check that ' \
                     'the images are loaded correctly.'
-
             imgs = imgs.to(device=device, dtype=torch.float32)
             weight = weight.to(device=device, dtype=torch.float32)
             mask_type = torch.float32 if net.n_classes == 1 else torch.long
@@ -198,13 +200,17 @@ def eval_net(net, device, val_loader ,args):
     """Evaluation without the densecrf with the dice coefficient"""
     avg_meters = {'loss': AverageMeter(),'iou': AverageMeter(),'pixel_error': AverageMeter(),'rand_error': AverageMeter(),'dice_coeff':AverageMeter()}
     net.eval()
-    mask_type = torch.float32 if net.n_classes == 1 else torch.long
     batch_count = 0
 
     with tqdm(total=n_val, desc='Validation round') as pbar:
-        for imgs,true_masks,weight,_  in val_loader:
+        for batch  in val_loader:
+            imgs = batch["image"]
+            weight = batch["weight"]
+            true_masks = batch['mask']
+
             imgs = imgs.to(device=device, dtype=torch.float32)
             weight = weight.to(device=device, dtype=torch.float32)
+            mask_type = torch.float32 if net.n_classes == 1 else torch.long
             true_masks = true_masks.to(device=device, dtype=mask_type)
 
             with torch.no_grad():
@@ -253,60 +259,6 @@ def eval_net(net, device, val_loader ,args):
     ret['rand_error'] = avg_meters['rand_error'].avg
     ret['dice_coeff'] = avg_meters['dice_coeff'].avg
     return ret
-
-def get_dataset(args):
-    # Data loading code
-    img_ids = glob(os.path.join('data', args.data_dir, 'images', '*' + args.img_ext))
-    img_ids = [os.path.splitext(os.path.basename(p))[0] for p in img_ids]
-
-    train_img_ids, val_img_ids = train_test_split(img_ids, test_size=args.val, random_state=41)
-
-    train_transform = Compose([
-        transforms.RandomRotate90(),
-        transforms.Flip(),
-        OneOf([
-            transforms.HueSaturationValue(),
-            transforms.RandomBrightness(),
-            transforms.RandomContrast(),
-        ], p=1),
-        transforms.Resize(args.input_h, args.input_w),
-        transforms.Normalize(),
-    ])
-
-    val_transform = Compose([
-        transforms.Resize(args.input_h, args.input_w),
-        transforms.Normalize(),
-    ])
-    train_dataset =  datasets.__dict__[args.dataset](
-        img_ids=train_img_ids,
-        img_dir=os.path.join('data', args.data_dir, 'images'),
-        mask_dir=os.path.join('data', args.data_dir, 'masks'),
-        img_ext=args.img_ext,
-        mask_ext=args.mask_ext,
-        num_classes=args.num_classes,
-        transform=None)
-    val_dataset =  datasets.__dict__[args.dataset](
-        img_ids=val_img_ids,
-        img_dir=os.path.join('data', args.data_dir, 'images'),
-        mask_dir=os.path.join('data', args.data_dir, 'masks'),
-        img_ext=args.img_ext,
-        mask_ext=args.mask_ext,
-        num_classes=args.num_classes,
-        transform=None)
-
-    train_loader = torch.utils.data.DataLoader(
-        train_dataset,
-        batch_size=args.batchsize,
-        shuffle=True,
-        num_workers=args.num_workers,
-        drop_last=True)
-    val_loader = torch.utils.data.DataLoader(
-        val_dataset,
-        batch_size=args.batchsize,
-        shuffle=False,
-        num_workers=args.num_workers,
-        drop_last=False)
-    return train_loader,val_loader,len(train_dataset),len(val_dataset)
 
 def get_optimizer(args,model):
     params = filter(lambda p: p.requires_grad, model.parameters())
@@ -392,7 +344,8 @@ if __name__ == '__main__':
     # cudnn.benchmark = True
 
     # init data set here: there two kinds of  data set mic and dsb_2018_96
-    train_loader,val_loader,n_train,n_val = get_dataset(args)
+    dataMaker = datasets.__dict__[args.dataset](args)
+    train_loader,val_loader,n_train,n_val = dataMaker(args)
     logging.info(f'''Starting training:
         args:          {args}
     ''')
