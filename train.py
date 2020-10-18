@@ -54,10 +54,10 @@ def get_args():
     parser.add_argument('--experiment', default='default')
     parser.add_argument('-e', '--epochs', metavar='E', type=int, default=50,
                         help='Number of epochs', dest='epochs')
-    parser.add_argument('--continue_epochs', type=int, default=-1,
-                        help='resume from a checkpoint epochs', dest='continue_epochs')
     parser.add_argument('-b', '--batch-size', metavar='B', type=int, nargs='?', default=1,
                         help='Batch size', dest='batchsize')
+    parser.add_argument('-as', '--accumulation-step', metavar='B', type=int, nargs='?', default=1,
+                        help='Batch size', dest='accumulation_step')
     parser.add_argument('--seed', type=int, default=45,
                         help='a seed  for initial val', dest='seed')
     parser.add_argument('--device', default='cuda',
@@ -204,14 +204,22 @@ def train_net(net,device,train_loader,args,nonlinear=softmax_helper):
             #print(loss)
             avg_meters['loss'].update(loss.cpu().item())
             pbar.set_postfix(**{'train_loss': avg_meters['loss'].avg})
-
-            optimizer.zero_grad()
-            loss.backward()
-            nn.utils.clip_grad_value_(net.parameters(), 0.1)
-            optimizer.step()
-            pbar.update(imgs.shape[0])
             iter +=1
-            if iter >1000000:
+            if args.accumulation_step==1:
+                optimizer.zero_grad()
+                loss.backward()
+                nn.utils.clip_grad_value_(net.parameters(), 0.1)
+                optimizer.step()
+            else:
+                loss = loss/args.accumulation_step
+                loss.backward()
+                if(iter%args.accumulation_step)==0:
+                    # optimizer the net
+                    optimizer.step()        # update parameters of net
+                    optimizer.zero_grad()   # reset gradient
+
+            pbar.update(imgs.shape[0])
+            if iter >1000000:#这些代码是测试用的 可以删除掉
                 break
 
         pbar.close()
@@ -314,16 +322,6 @@ def eval_net(net, device, val_loader ,args,epoch,nonlinear=softmax_helper,miou_s
         ret['dice_coeff'] = avg_meters['dice_coeff'].avg
     return ret
 
-def get_dataset(args):
-    global dataset
-    dataset = datasets.__dict__[args.dataset](data_dir=args.data_dir)
-    n_val = int(len(dataset) * args.val)
-    n_train = len(dataset) - n_val
-    train, val = random_split(dataset, [n_train, n_val])
-    train_loader = DataLoader(train, batch_size=args.batchsize, shuffle=True, num_workers=args.num_workers, pin_memory=True)
-    val_loader = DataLoader(val, batch_size=args.batchsize, shuffle=False, num_workers=args.num_workers, pin_memory=True)
-    return train_loader,val_loader,n_train,n_val
-
 def get_optimizer(args,model):
     params = filter(lambda p: p.requires_grad, model.parameters())
     if args.optimizer == 'Adam':
@@ -372,6 +370,15 @@ if __name__ == '__main__':
     else:
         device = torch.device('cpu')
     logging.info(f'Using device {device}')
+    checkpoint = None
+    load_from = None
+    if args.load:
+        load_from = args.load #备份加载位置，因为args会被替换
+        checkpoint = torch.load(args.load, map_location=device)
+        args = checkpoint['args']
+        logging.info(f'''reload training:
+        args:          {args}
+        ''')
     #set seed
     set_seed(args.seed)
     # Change here to adapt to your data
@@ -384,8 +391,9 @@ if __name__ == '__main__':
     optimizer = get_optimizer(args,net)
     scheduler = get_scheduler(args,optimizer)
     criterion = get_criterion(args,net)
+    start_epoch =0
 
-    #mkdirs for centain experiment
+    #mkdirs for each experiment
     try:
         os.mkdir('./result/{}'.format(args.experiment))
     except OSError:
@@ -394,16 +402,21 @@ if __name__ == '__main__':
     logging.info(f'Network:\n'
                  f'\t{args.input_channels} input channels\n'
                  f'\t{args.num_classes} output channels (classes)\n')
-    if args.load:
-        net.load_state_dict(
-            torch.load(args.load, map_location=device)
-        )
-        logging.info(f'Model loaded from {args.load}')
+    if load_from is not None:
+        net.load_state_dict(checkpoint['net'])
+        optimizer.load_state_dict(checkpoint['optimizer'])
+        for state in optimizer.state.values():
+            for k, v in state.items():
+                if torch.is_tensor(v):
+                    state[k] = v.cuda()
+        start_epoch = checkpoint['epoch'] 
+        logging.info(f'Model loaded from {load_from} in epoch {start_epoch}')
+
     net.to(device=device)
 
     # faster convolutions, but more memory
     # cudnn.benchmark = True
-    # init data set here: 
+    # init data set here:
     #global datamaker
     datamaker = datasets.__dict__[args.dataset](args)
     train_loader,val_loader,n_train,n_val = datamaker(args)
@@ -416,10 +429,7 @@ if __name__ == '__main__':
     writer = SummaryWriter(comment=f'_ex.{args.experiment}_{args.optimizer}_LR_{args.lr}_BS_{args.batchsize}_model_{args.arch}')
     savepoint=savepoints.__dict__[args.savepoint](args)
     try:
-        if args.continue_epochs <0:
-            rounds = range(args.epochs)
-        else:
-            rounds = range(args.continue_epochs,args.epochs)
+        rounds = range(start_epoch,args.epochs)
         for epoch in rounds:
             # train
             train_log = train_net(net=net,device=device,train_loader=train_loader,args=args)
@@ -472,8 +482,9 @@ if __name__ == '__main__':
 
             #force to save check point at last epoch
             if args.force_save_last and epoch == args.epochs-1:
-                    torch.save(net.state_dict(),args.dir_checkpoint + f'CP_ex.{args.experiment}_epoch{epoch + 1}_{args.arch}_{args.dataset}.pth')
-                    logging.info(f'Checkpoint {epoch + 1} saved !')
+                state = {'args':args,'net':net.state_dict(), 'optimizer':optimizer.state_dict(), 'epoch':epoch}
+                torch.save(net.state_dict(),args.dir_checkpoint + f'CP_ex.{args.experiment}_epoch{epoch + 1}_{args.arch}_{args.dataset}.pth')
+                logging.info(f'Checkpoint {epoch + 1} saved !')
             # save check point by condition
             if args.save_check_point:
                 if args.save_mode == 'by_best':
@@ -483,7 +494,8 @@ if __name__ == '__main__':
                             logging.info('Created checkpoint directory')
                         except OSError:
                             pass
-                        torch.save(net.state_dict(),args.dir_checkpoint + f'CP_ex.{args.experiment}_epoch{epoch + 1}_{args.arch}_{args.dataset}.pth')
+                        state = {'args':args,'net':net.state_dict(), 'optimizer':optimizer.state_dict(), 'epoch':epoch}
+                        torch.save(state,args.dir_checkpoint + f'CP_ex.{args.experiment}_epoch{epoch + 1}_{args.arch}_{args.dataset}.pth')
                         logging.info(f'Checkpoint {epoch + 1} saved !')
                         # for csv
                         if 'is_best' not in log:
@@ -499,15 +511,17 @@ if __name__ == '__main__':
                         logging.info('Created checkpoint directory')
                     except OSError:
                         pass
-                    torch.save(net.state_dict(),args.dir_checkpoint + f'CP_ex.{args.experiment}_epoch{epoch + 1}_{args.arch}_{args.dataset}.pth')
+                    state = {'args':args,'net':net.state_dict(), 'optimizer':optimizer.state_dict(), 'epoch':epoch}
+                    torch.save(state,args.dir_checkpoint + f'CP_ex.{args.experiment}_epoch{epoch + 1}_{args.arch}_{args.dataset}.pth')
                     logging.info(f'Checkpoint {epoch + 1} saved !')
         #for csv
         pd.DataFrame(log).to_csv('./result/{}.csv'.format(args.experiment),index=None)
         writer.close()
     except KeyboardInterrupt:
         if args.save_check_point:
-            torch.save(net.state_dict(), args.dir_checkpoint+f'INTERRUPTED_ex.{args.experiment}_epoch{epoch + 1}_{args.arch}_{args.dataset}.pth')
-            logging.info('Saved interrupt')
+            state = {'args':args,'net':net.state_dict(), 'optimizer':optimizer.state_dict(), 'epoch':epoch}
+            torch.save(state, args.dir_checkpoint+f'INTERRUPTED_ex.{args.experiment}_epoch{epoch + 1}_{args.arch}_{args.dataset}.pth')
+            logging.info('Saved interrupt in {} epoch'.format(epoch))
         writer.close()
         try:
             sys.exit(0)
