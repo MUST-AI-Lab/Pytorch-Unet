@@ -19,6 +19,7 @@ from albumentations.augmentations import transforms
 from albumentations.core.composition import Compose, OneOf
 from sklearn.model_selection import train_test_split
 from torch.utils.data import DataLoader, random_split
+import pandas as pd
 
 __all__ = ['BasicDataset', 'CarvanaDataset','MICDataset','DSBDataset','CityScapesDataset','PascalDataset','Cam2007Dataset']
 
@@ -33,6 +34,33 @@ class Cam2007Dataset(Dataset):
             "Sky","SUVPickupTruck","TrafficCone","TrafficLight","Train","Tree","Truck_Bus","Tunnel",
             "VegetationMisc","Void","Wall"
         ]
+
+    # get pixel distribution from data set
+    def statistic_dataset(self):
+        keeper = dict()
+        keeper['id'] = []
+        for item in self.class_names:
+            keeper[item] = []
+        for _,label,ids in self.pairs:
+            keeper['id'].append(ids)
+            total = np.prod(label.shape)
+            total_pixel =0
+            for i in range(32):
+                state = (label==i).astype(np.int)
+                total_pixel +=  np.sum(state)
+                keeper[self.class_names[i]].append((np.sum(state))/total)
+            #check sum 
+            assert total == total_pixel,"not total pixel"
+
+        keeper['id'].append('total')
+        for item in self.class_names:#total
+            factor = np.sum(keeper[item])/len(self.pairs)
+            keeper[item].append(factor)
+        dataframe = pd.DataFrame.from_dict(keeper)
+        dataframe.to_csv("Cam2007Dataset.csv",index=False)
+
+
+
 
     def __call__(self,args):
         dataset = PascalDataset(args)
@@ -151,7 +179,7 @@ class Cam2007Dataset(Dataset):
                 axes[0].imshow(image)
                 axes[1].imshow(rev_label)
                 plt.show()
-            self.pairs.append((image,label))
+            self.pairs.append((image,label,ids))
 
     def showrevert(self,cityscape,label):
         rev_label = self.revert_label2rgb(label)
@@ -193,7 +221,7 @@ class Cam2007Dataset(Dataset):
         plt.show()
 
     def __getitem__(self, idx):
-        cityscape,label = self.pairs[idx]
+        cityscape,label,_ = self.pairs[idx]
         img = cityscape.astype('float32') / 255
         img = cityscape.transpose(2, 0, 1).astype('float32')
         # onehot = mask2onehot(label,33)
