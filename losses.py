@@ -88,7 +88,6 @@ class LovaszHingeLoss(nn.Module):
 
         return loss
 
-
 #for multi class loss
 class GDL(nn.Module):
     def __init__(self,args, apply_nonlin=softmax_helper, batch_dice=False, do_bg=True, smooth=1.,
@@ -180,7 +179,6 @@ class SoftDiceLoss(nn.Module):
                 dc = dc[:, 1:]
         dc = dc.mean()
         return dc
-
 
 # --------------------------- BINARY LOSSES ---------------------------
 class FocalLoss(nn.Module):

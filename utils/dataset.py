@@ -22,6 +22,15 @@ from torch.utils.data import DataLoader, random_split
 import pandas as pd
 
 __all__ = ['BasicDataset', 'CarvanaDataset','MICDataset','DSBDataset','CityScapesDataset','PascalDataset','Cam2007Dataset']
+def RGB_to_Hex(tmp):
+    rgb = tmp.split(',')#将RGB格式划分开来
+    strs = '#'
+    for i in rgb:
+        num = int(i)#将str转int
+        #将R、G、B分别转化为16进制拼接转换并大写
+        strs += str(hex(num))[-2:].replace('x','0').upper()
+    return strs
+
 
 class Cam2007Dataset(Dataset):
     def __init__(self,args,default_pairs = True):
@@ -41,7 +50,7 @@ class Cam2007Dataset(Dataset):
         keeper['id'] = []
         for item in self.class_names:
             keeper[item] = []
-        for _,label,ids in self.pairs:
+        for _,label,ids in tqdm(self.pairs):
             keeper['id'].append(ids)
             total = np.prod(label.shape)
             total_pixel =0
@@ -53,14 +62,29 @@ class Cam2007Dataset(Dataset):
             assert total == total_pixel,"not total pixel"
 
         keeper['id'].append('total')
+        summary_factor = []
         for item in self.class_names:#total
             factor = np.sum(keeper[item])/len(self.pairs)
             keeper[item].append(factor)
+            summary_factor.append(factor)
+
+
+        fig, ax = plt.subplots()
+        summary_factor = np.array(summary_factor )
+        idx = np.argsort(summary_factor)
+        summary_factor = np.sort(summary_factor)
+        names = [self.class_names[k] for  k in idx]
+        colors = [self.cmap[k] for k in idx]
+        for i in range(len(self.class_names)):#total
+            ax.bar(names[i], summary_factor[i],color=RGB_to_Hex("{},{},{}".format(colors[i][0],colors[i][1],colors[i][2])))
+        for a,b in zip(names,summary_factor):
+            plt.text(a, b+0, '%.2f' % b, ha='center', va= 'bottom',fontsize=10)
+        plt.xticks(rotation = 270,fontsize=10)
+        plt.title('Distribution of pixels count')
+        plt.show()
+
         dataframe = pd.DataFrame.from_dict(keeper)
         dataframe.to_csv("Cam2007Dataset.csv",index=False)
-
-
-
 
     def __call__(self,args):
         dataset = PascalDataset(args)
