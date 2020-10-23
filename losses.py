@@ -12,7 +12,28 @@ try:
 except ImportError:
     pass
 
-__all__ = ['BCEDiceLoss', 'LovaszHingeLoss','WeightBCELoss','WeightBCEDiceLoss','GDL','SoftDiceLoss','FocalLoss','MultiFocalLoss']
+__all__ = ['BCEDiceLoss', 'LovaszHingeLoss','WeightBCELoss','WeightBCEDiceLoss','GDL','SoftDiceLoss','FocalLoss','MultiFocalLoss','SoftDiceLossV2']
+# --------------------------- BINARY LOSSES ---------------------------
+class FocalLoss(nn.Module):
+    def __init__(self,args, alpha=0.25, gamma=2, weight=None, ignore_index=255):
+        super(FocalLoss, self).__init__()
+        self.args = args 
+        self.alpha = alpha
+        self.gamma = gamma
+        self.weight = weight
+        self.ignore_index = ignore_index
+        self.bce_fn = nn.BCEWithLogitsLoss()
+
+    def forward(self, preds, labels,weight=None):
+        if self.ignore_index is not None:
+            mask = labels != self.ignore
+            labels = labels[mask]
+            preds = preds[mask]
+
+        logpt = -1*self.bce_fn(preds, labels)
+        pt = torch.exp(logpt)
+        loss = -((1 - pt) ** self.gamma) * self.alpha * logpt
+        return loss
 
 class WeightBCEDiceLoss(nn.Module):
     def __init__(self,args):
@@ -88,7 +109,9 @@ class LovaszHingeLoss(nn.Module):
 
         return loss
 
-#for multi class loss
+# --------------------------- MULTICLASS LOSSES ---------------------------
+
+# --------------------------- dice series ---------------------------
 class GDL(nn.Module):
     def __init__(self,args, apply_nonlin=softmax_helper, batch_dice=False, do_bg=True, smooth=1.,
                  square=False, square_volumes=False):
@@ -128,14 +151,6 @@ class GDL(nn.Module):
             x = x[:, 1:]
             y_onehot = y_onehot[:, 1:]
         tp, fp, fn, _ = get_tp_fp_fn_tn(x, y_onehot, axes, loss_mask, self.square)
-        # GDL weight computation, we use 1/V
-        volumes = sum_tensor(y_onehot, axes) + 1e-6 # add some eps to prevent div by zero
-        if self.square_volumes:
-            volumes = volumes ** 2
-        # apply weights
-        tp = tp / volumes
-        fp = fp / volumes
-        fn = fn / volumes
         # sum over classes
         if self.batch_dice:
             axis = 0
@@ -148,7 +163,6 @@ class GDL(nn.Module):
         dc = (2 * tp + self.smooth) / (2 * tp + fp + fn + self.smooth)
         dc = dc.mean()
         return dc
-
 class SoftDiceLoss(nn.Module):
     def __init__(self,args, apply_nonlin=softmax_helper, batch_dice=False, do_bg=True, smooth=1.):
         """
@@ -180,41 +194,89 @@ class SoftDiceLoss(nn.Module):
         dc = dc.mean()
         return dc
 
-# --------------------------- BINARY LOSSES ---------------------------
-class FocalLoss(nn.Module):
-    def __init__(self, alpha=0.25, gamma=2, weight=None, ignore_index=255):
-        super(FocalLoss, self).__init__()
-        self.alpha = alpha
-        self.gamma = gamma
-        self.weight = weight
-        self.ignore_index = ignore_index
-        self.bce_fn = nn.BCEWithLogitsLoss(weight=self.weight)
+def diceCoeff(pred, gt, smooth=1e-5, activation='sigmoid'):
+    r""" computational formula：
+        dice = (2 * (pred ∩ gt)) / (pred ∪ gt)
+    """
+ 
+    if activation is None or activation == "none":
+        activation_fn = lambda x: x
+    elif activation == "sigmoid":
+        activation_fn = nn.Sigmoid()
+    elif activation == "softmax2d":
+        activation_fn = nn.Softmax2d()
+    else:
+        raise NotImplementedError("Activation implemented for sigmoid and softmax2d 激活函数的操作")
+ 
+    pred = activation_fn(pred)
+ 
+    N = gt.size(0)
+    pred_flat = pred.view(N, -1)
+    gt_flat = gt.view(N, -1)
 
-    def forward(self, preds, labels):
-        if self.ignore_index is not None:
-            mask = labels != self.ignore
-            labels = labels[mask]
-            preds = preds[mask]
+    intersection = (pred_flat * gt_flat).sum(1)
+    unionset = pred_flat.sum(1) + gt_flat.sum(1)
+    loss = (2 * intersection + smooth) / (unionset + smooth)
+ 
+    return loss.sum() / N
 
-        logpt = -1*self.bce_fn(preds, labels)
-        pt = torch.exp(logpt)
-        loss = -((1 - pt) ** self.gamma) * self.alpha * logpt
-        return loss
-# --------------------------- MULTICLASS LOSSES ---------------------------
+class SoftDiceLossV2(nn.Module):
+    __name__ = 'dice_loss'
+ 
+    def __init__(self,args, activation='sigmoid', reduction='mean'):
+        super(SoftDiceLossV2, self).__init__()
+        self.args = args
+        self.activation = activation
+        self.num_classes = args.num_classes
+ 
+    def forward(self, y_pred, y_true,weight=None):
+        # assert weight ==None, 'SoftDiceLossV2 not yet implement  weight loss'
+        shp_x = y_pred.shape
+        shp_y = y_true.shape
+        if len(shp_x) != len(shp_y):
+            y_true = y_true.view((shp_y[0], 1, *shp_y[1:]))
+        y_onehot = torch.zeros(shp_x)
+        if y_pred.device.type == "cuda":
+            y_onehot = y_onehot.cuda(y_true.device.index)
+        y_onehot.scatter_(1, y_true, 1)
+        class_dice = []
+        for i in range(1, self.num_classes):
+            if weight is None:
+                class_dice.append(diceCoeff(y_pred[:, i:i + 1, :], y_onehot[:, i:i + 1, :], activation=self.activation))
+            else:
+                class_dice.append(weight[0][i]*diceCoeff(y_pred[:, i:i + 1, :], y_onehot[:, i:i + 1, :], activation=self.activation))
+        mean_dice = sum(class_dice) / len(class_dice)
+        return 1 - mean_dice
+
+# ---------------------------entropy series---------------------------
 class MultiFocalLoss(nn.Module):
-    def __init__(self, args ,alpha=0.5, gamma=2, weight=None, ignore_index=255):
+    def __init__(self, args ,alpha=0.5, gamma=2, ignore_index=255):
         super().__init__()
         self.args = args
         self.alpha = alpha
         self.gamma = gamma
-        self.weight = weight
         self.ignore_index = ignore_index
-        self.ce_fn = nn.CrossEntropyLoss(weight=self.weight, ignore_index=self.ignore_index,reduce=False)
+        self.ce_fn = nn.CrossEntropyLoss( ignore_index=self.ignore_index,reduce=False)
 
-    def forward(self, preds, labels):
+    def forward(self, preds, labels,weight=None):
         logpt = -1*self.ce_fn(preds, labels)
         pt = torch.exp(logpt)
         loss = -((1 - pt) ** self.gamma) * self.alpha * logpt
+        if weight is not None:
+            loss = loss *weight
+        return loss.mean()
+# a warpper for cross-entropy loss
+class WeightCrossEntropyLoss(nn.Module):
+    def __init__(self, args,ignore_index=255):
+        super().__init__()
+        self.args = args
+        self.ignore_index = ignore_index
+        self.ce_fn = nn.CrossEntropyLoss( ignore_index=self.ignore_index,reduce=False)
+
+    def forward(self, preds, labels,weight=None):
+        loss = self.ce_fn(preds, labels)
+        if weight is not None:
+            loss = loss *weight
         return loss.mean()
 
 def get_tp_fp_fn_tn(net_output, gt, axes=None, mask=None, square=False):

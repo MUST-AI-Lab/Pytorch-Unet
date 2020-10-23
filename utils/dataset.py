@@ -35,6 +35,7 @@ def RGB_to_Hex(tmp):
 class Cam2007Dataset(Dataset):
     def __init__(self,args,default_pairs = True):
         self.data_dir =args.data_dir
+        self.args = args
         self.cmap = self.labelcolormap(32)
         self.class_names = [
             "Animal", "Archway","Bicyclist","Bridge","Building","Car","CartLuggagePram",
@@ -87,8 +88,9 @@ class Cam2007Dataset(Dataset):
         dataframe.to_csv("Cam2007Dataset.csv",index=False)
 
     def __call__(self,args):
-        dataset = PascalDataset(args)
+        dataset = Cam2007Dataset(args)
         dataset.get_pairs()
+        dataset.get_disturibution()
         n_val = int(len(dataset) * args.val)
         n_train = len(dataset) - n_val
         train, val = random_split(dataset, [n_train, n_val])
@@ -186,6 +188,30 @@ class Cam2007Dataset(Dataset):
     def label2rgb(self,label):
         return self.cmap[label]
 
+    def get_disturibution(self):
+        keeper = dict()
+        keeper['id'] = []
+        for item in self.class_names:
+            keeper[item] = []
+        for _,label,ids in tqdm(self.pairs):
+            keeper['id'].append(ids)
+            total = np.prod(label.shape)
+            total_pixel =0
+            for i in range(32):
+                state = (label==i).astype(np.int)
+                total_pixel +=  np.sum(state)
+                keeper[self.class_names[i]].append((np.sum(state))/total)
+            #check sum 
+            assert total == total_pixel,"not total pixel"
+
+        keeper['id'].append('total')
+        summary_factor = []
+        for item in self.class_names:#total
+            factor = np.sum(keeper[item])/len(self.pairs)
+            keeper[item].append(factor)
+            summary_factor.append(factor)
+        self.summary_factor = summary_factor
+
     #get pair from npy
     def get_pairs(self,img="IMG",GT="GT",imshow=False):
         self.pairs = []
@@ -250,10 +276,34 @@ class Cam2007Dataset(Dataset):
         img = cityscape.transpose(2, 0, 1).astype('float32')
         # onehot = mask2onehot(label,33)
         # to onehot
-        return {
-                'image': torch.from_numpy(img).type(torch.FloatTensor),
-                'mask': torch.from_numpy(label).type(torch.IntTensor)
-        }
+        if self.args.weight_type == 'pixel':
+            weight=np.zeros_like(label).astype(np.float)
+            max_di = np.max(self.summary_factor)
+            e = 2.7182
+            for i in range(label.shape[0]):
+                for j in range(label.shape[1]):
+                    pt = self.summary_factor[label[i][j]]/max_di
+                    weight[i][j] = 1.5*(1/e**pt)
+        elif self.args.weight_type == 'distrubution':
+            e = 2.7182
+            weight=np.ones_like(self.summary_factor).astype(np.float)
+            weight=weight*self.summary_factor
+            max_di = np.max(self.summary_factor)
+            weight = weight/max_di
+            weight = 1.5 *(1/e**weight)
+        else:
+            assert None ,"uknow weight type"
+        if self.args.weight_loss:
+            return {
+                    'image': torch.from_numpy(img).type(torch.FloatTensor),
+                    'mask': torch.from_numpy(label).type(torch.IntTensor),
+                    'weight':torch.from_numpy(weight).type(torch.FloatTensor)
+            }
+        else:
+            return {
+                    'image': torch.from_numpy(img).type(torch.FloatTensor),
+                    'mask': torch.from_numpy(label).type(torch.IntTensor)
+            }
 
     # get pair from origin picture
     def get_origin_pairs(self,img="IMG",GT="GT",imshow=False):

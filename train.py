@@ -64,7 +64,7 @@ def get_args():
                         help='choose device', dest='device')
 
     # model
-    parser.add_argument('--arch', '-a', metavar='ARCH', default='FCNN2',
+    parser.add_argument('--arch', '-a', metavar='ARCH', default='FCNNhub',
                         choices=ARCH_NAMES,
                         help='model architecture: ' +
                         ' | '.join(ARCH_NAMES) +
@@ -72,27 +72,28 @@ def get_args():
     parser.add_argument('--deep_supervision', default=False, type=str2bool)
     parser.add_argument('--input_channels', default=3, type=int,
                         help='input channels')
-    parser.add_argument('--num_classes', default=19, type=int,
+    parser.add_argument('--num_classes', default=32, type=int,
                         help='number of classes')
 
     # loss
-    parser.add_argument('--loss', default='MultiFocalLoss',
+    parser.add_argument('--loss', default='SoftDiceLossV2',
                         choices=LOSS_NAMES,
                         help='loss: ' +
                         ' | '.join(LOSS_NAMES) +
                         ' (default: CrossEntropyLoss)')
-    parser.add_argument('--weight_loss', default=False, type=str2bool)
+    parser.add_argument('--weight_loss', default=True, type=str2bool)
     parser.add_argument('--weight_bias', type=float, default=1e-11)
+    parser.add_argument('--weight_type', default='distrubution')
 
     # dataset
-    parser.add_argument('--dataset', metavar='DATASET', default='CityScapesDataset',
+    parser.add_argument('--dataset', metavar='DATASET', default='Cam2007Dataset',
                         choices=DATASET_NAMES,
                         help='model architecture: ' +
                         ' | '.join(DATASET_NAMES) +
                         ' (default: BasicDataset)')
-    parser.add_argument('--data_dir', default='./data/city_scapes',
+    parser.add_argument('--data_dir', default='./data/Cam2007_n',
                         help='dataset_location_dir')
-    parser.add_argument('--num_workers', default=0, type=int)
+    parser.add_argument('--num_workers', default=4, type=int)
     #for dsb dataset compact
     parser.add_argument('--input_w', default=96, type=int,
                         help='image width')
@@ -184,22 +185,19 @@ def train_net(net,device,train_loader,args,nonlinear=softmax_helper):
 
             masks_pred = net(imgs)
             # compute output
-            if net.n_classes > 1:
-                loss = criterion(masks_pred, true_masks)
-            else:
-                if args.deep_supervision:
-                    loss = 0
-                    for output in masks_pred:
-                        if args.weight_loss:
-                            loss += criterion(output, true_masks,weight)
-                        else:
-                            loss += criterion(output, true_masks)
-                    loss /= len(masks_pred)
-                else:
-                    if args.weight_loss:
-                        loss = criterion(masks_pred, true_masks,weight)
+            if args.deep_supervision:
+                loss = 0
+                for output in masks_pred:
+                    if weight is not None and args.weight_loss:
+                        loss += criterion(output, true_masks,weight)
                     else:
-                        loss = criterion(masks_pred, true_masks)
+                        loss += criterion(output, true_masks)
+                loss /= len(masks_pred)
+            else:
+                if weight is not None and args.weight_loss:
+                    loss = criterion(masks_pred, true_masks,weight)
+                else:
+                    loss = criterion(masks_pred, true_masks)
 
             #print(loss)
             avg_meters['loss'].update(loss.cpu().item())
