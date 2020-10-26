@@ -2,7 +2,7 @@ import torch
 from torch import nn
 import torch.nn.functional as F
 
-__all__ = ['UNet', 'NestedUNet','PyramidUNet','PyramidNestedUNet','FCNN','FCNN2','FCNNhub']
+__all__ = ['UNet', 'UNetNBN' , 'NestedUNet','PyramidUNet','PyramidNestedUNet','FCNN','FCNN2','FCNNhub']
 
 class FCNNhub(nn.Module):
     def __init__(self,args):
@@ -37,24 +37,77 @@ class FCNNhub(nn.Module):
         return output
 
 class VGGBlock(nn.Module):
-    def __init__(self, in_channels, middle_channels, out_channels):
+    def __init__(self, in_channels, middle_channels, out_channels,use_bn=True):
         super().__init__()
         self.relu = nn.ReLU(inplace=True)
+        self.use_bn = use_bn
         self.conv1 = nn.Conv2d(in_channels, middle_channels, 3, padding=1)
-        self.bn1 = nn.BatchNorm2d(middle_channels)
+        if use_bn:
+            self.bn1 = nn.BatchNorm2d(middle_channels)
         self.conv2 = nn.Conv2d(middle_channels, out_channels, 3, padding=1)
-        self.bn2 = nn.BatchNorm2d(out_channels)
+        if use_bn:
+            self.bn2 = nn.BatchNorm2d(out_channels)
 
     def forward(self, x):
         out = self.conv1(x)
-        out = self.bn1(out)
+        if self.use_bn:
+            out = self.bn1(out)
         out = self.relu(out)
 
         out = self.conv2(out)
-        out = self.bn2(out)
+        if self.use_bn:
+            out = self.bn2(out)
         out = self.relu(out)
 
         return out
+
+# no batch normalization UNet
+class UNetNBN(nn.Module):
+    def __init__(self,args):
+        super().__init__()
+        self.n_channels = args.input_channels
+        self.n_classes = args.num_classes
+
+        nb_filter = [32, 64, 128, 256, 512]
+
+        self.pool = nn.MaxPool2d(2, 2)
+        self.up = nn.Upsample(scale_factor=2, mode='bilinear', align_corners=True)
+
+        self.conv0_0 = VGGBlock(self.n_channels, nb_filter[0], nb_filter[0],use_bn=False)
+        self.conv1_0 = VGGBlock(nb_filter[0], nb_filter[1], nb_filter[1],use_bn=False)
+        self.conv2_0 = VGGBlock(nb_filter[1], nb_filter[2], nb_filter[2],use_bn=False)
+        self.conv3_0 = VGGBlock(nb_filter[2], nb_filter[3], nb_filter[3],use_bn=False)
+        self.conv4_0 = VGGBlock(nb_filter[3], nb_filter[4], nb_filter[4],use_bn=False)
+
+        self.conv3_1 = VGGBlock(nb_filter[3]+nb_filter[4], nb_filter[3], nb_filter[3],use_bn=False)
+        self.conv2_2 = VGGBlock(nb_filter[2]+nb_filter[3], nb_filter[2], nb_filter[2],use_bn=False)
+        self.conv1_3 = VGGBlock(nb_filter[1]+nb_filter[2], nb_filter[1], nb_filter[1],use_bn=False)
+        self.conv0_4 = VGGBlock(nb_filter[0]+nb_filter[1], nb_filter[0], nb_filter[0],use_bn=False)
+
+        self.final = nn.Conv2d(nb_filter[0], self.n_classes, kernel_size=1)
+
+    def ajust_padding(self,x1,x2):
+        diffY = x1.size()[2] - x2.size()[2]
+        diffX = x1.size()[3] - x2.size()[3]
+
+        x2 = F.pad(x2, [diffX // 2, diffX - diffX // 2,
+                        diffY // 2, diffY - diffY // 2])
+        return [x1,x2]
+
+    def forward(self, input):
+        x0_0 = self.conv0_0(input)
+        x1_0 = self.conv1_0(self.pool(x0_0))
+        x2_0 = self.conv2_0(self.pool(x1_0))
+        x3_0 = self.conv3_0(self.pool(x2_0))
+        x4_0 = self.conv4_0(self.pool(x3_0))
+
+        x3_1 = self.conv3_1(torch.cat(self.ajust_padding(x3_0, self.up(x4_0)), 1))
+        x2_2 = self.conv2_2(torch.cat(self.ajust_padding(x2_0, self.up(x3_1)), 1))
+        x1_3 = self.conv1_3(torch.cat(self.ajust_padding(x1_0, self.up(x2_2)), 1))
+        x0_4 = self.conv0_4(torch.cat(self.ajust_padding(x0_0, self.up(x1_3)), 1))
+
+        output = self.final(x0_4)
+        return output
 
 class FCNN(nn.Module):
     def __init__(self,args):
