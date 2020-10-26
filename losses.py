@@ -12,7 +12,7 @@ try:
 except ImportError:
     pass
 
-__all__ = ['BCEDiceLoss', 'LovaszHingeLoss','WeightBCELoss','WeightBCEDiceLoss','GDL','SoftDiceLoss','FocalLoss','MultiFocalLoss','SoftDiceLossV2']
+__all__ = ['BCEDiceLoss', 'LovaszHingeLoss','WeightBCELoss','WeightBCEDiceLoss','GDL','SoftDiceLoss','FocalLoss','MultiFocalLoss','SoftDiceLossV2','WeightCrossEntropyLoss']
 # --------------------------- BINARY LOSSES ---------------------------
 class FocalLoss(nn.Module):
     def __init__(self,args, alpha=0.25, gamma=2, weight=None, ignore_index=255):

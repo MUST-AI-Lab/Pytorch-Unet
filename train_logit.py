@@ -81,7 +81,7 @@ def get_args():
                         help='loss: ' +
                         ' | '.join(LOSS_NAMES) +
                         ' (default: CrossEntropyLoss)')
-    parser.add_argument('--weight_loss', default=None, type=str2bool)
+    parser.add_argument('--weight_loss', default=True, type=str2bool)
     parser.add_argument('--weight_bias', type=float, default=1e-11)
     parser.add_argument('--weight_type', default='pixel')
 
@@ -183,19 +183,22 @@ def train_net(net,device,train_loader,args,nonlinear=softmax_helper):
             mask_type = torch.float32 if net.n_classes == 1 else torch.long
             true_masks = true_masks.to(device=device, dtype=mask_type)
 
-            masks_pred = net(imgs)
+            masks_pred = net(imgs)#logit
+            #logit adjustment
+            masks_pred = masks_pred * weight
+
             # compute output
             if args.deep_supervision:
                 loss = 0
                 for output in masks_pred:
                     if weight is not None and args.weight_loss:
-                        loss += criterion(output, true_masks,weight)
+                        loss += criterion(output, true_masks,None)
                     else:
                         loss += criterion(output, true_masks)
                 loss /= len(masks_pred)
             else:
                 if weight is not None and args.weight_loss:
-                    loss = criterion(masks_pred, true_masks,weight)
+                    loss = criterion(masks_pred, true_masks,None)
                 else:
                     loss = criterion(masks_pred, true_masks)
 
