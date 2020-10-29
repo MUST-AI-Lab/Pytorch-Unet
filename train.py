@@ -81,7 +81,7 @@ def get_args():
                         help='loss: ' +
                         ' | '.join(LOSS_NAMES) +
                         ' (default: CrossEntropyLoss)')
-    parser.add_argument('--weight_loss', default=None, type=str2bool)
+    parser.add_argument('--weight_loss', default=True, type=str2bool)
     parser.add_argument('--weight_bias', type=float, default=1e-11)
     parser.add_argument('--weight_type', default='pixel')
 

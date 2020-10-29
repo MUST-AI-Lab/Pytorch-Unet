@@ -12,7 +12,9 @@ try:
 except ImportError:
     pass
 
-__all__ = ['BCEDiceLoss', 'LovaszHingeLoss','WeightBCELoss','WeightBCEDiceLoss','GDL','SoftDiceLoss','FocalLoss','MultiFocalLoss','SoftDiceLossV2','WeightCrossEntropyLoss']
+__all__ = ['BCEDiceLoss', 'LovaszHingeLoss','WeightBCELoss','WeightBCEDiceLoss','GDL','SoftDiceLoss','FocalLoss','MultiFocalLoss','SoftDiceLossV2','WeightCrossEntropyLoss',
+'WeightCrossEntropyLossV2']
+
 # --------------------------- BINARY LOSSES ---------------------------
 class FocalLoss(nn.Module):
     def __init__(self,args, alpha=0.25, gamma=2, weight=None, ignore_index=255):
@@ -112,88 +114,6 @@ class LovaszHingeLoss(nn.Module):
 # --------------------------- MULTICLASS LOSSES ---------------------------
 
 # --------------------------- dice series ---------------------------
-class GDL(nn.Module):
-    def __init__(self,args, apply_nonlin=softmax_helper, batch_dice=False, do_bg=True, smooth=1.,
-                 square=False, square_volumes=False):
-        """
-        square_volumes will square the weight term. The paper recommends square_volumes=True; I don't (just an intuition)
-        """
-        super(GDL, self).__init__()
-        self.args = args
-        self.square_volumes = square_volumes
-        self.square = square
-        self.do_bg = do_bg
-        self.batch_dice = batch_dice
-        self.apply_nonlin = apply_nonlin
-        self.smooth = smooth
-
-    def forward(self, x, y, loss_mask=None):
-        shp_x = x.shape
-        shp_y = y.shape
-        if self.batch_dice:
-            axes = [0] + list(range(2, len(shp_x)))
-        else:
-            axes = list(range(2, len(shp_x)))
-        if len(shp_x) != len(shp_y):
-            y = y.view((shp_y[0], 1, *shp_y[1:]))
-        if all([i == j for i, j in zip(x.shape, y.shape)]):
-            # if this is the case then gt is probably already a one hot encoding
-            y_onehot = y
-        else:
-            gt = y.long()
-            y_onehot = torch.zeros(shp_x)
-            if x.device.type == "cuda":
-                y_onehot = y_onehot.cuda(x.device.index)
-            y_onehot.scatter_(1, gt, 1)
-        if self.apply_nonlin is not None:
-            x = self.apply_nonlin(x)
-        if not self.do_bg:
-            x = x[:, 1:]
-            y_onehot = y_onehot[:, 1:]
-        tp, fp, fn, _ = get_tp_fp_fn_tn(x, y_onehot, axes, loss_mask, self.square)
-        # sum over classes
-        if self.batch_dice:
-            axis = 0
-        else:
-            axis = 1
-        tp = tp.sum(axis, keepdim=False)
-        fp = fp.sum(axis, keepdim=False)
-        fn = fn.sum(axis, keepdim=False)
-        # compute dice
-        dc = (2 * tp + self.smooth) / (2 * tp + fp + fn + self.smooth)
-        dc = dc.mean()
-        return dc
-class SoftDiceLoss(nn.Module):
-    def __init__(self,args, apply_nonlin=softmax_helper, batch_dice=False, do_bg=True, smooth=1.):
-        """
-        """
-        super(SoftDiceLoss, self).__init__()
-        self.args = args
-        self.do_bg = do_bg
-        self.batch_dice = batch_dice
-        self.apply_nonlin = apply_nonlin
-        self.smooth = smooth
-
-    def forward(self, x, y, loss_mask=None):
-        shp_x = x.shape
-        if self.batch_dice:
-            axes = [0] + list(range(2, len(shp_x)))
-        else:
-            axes = list(range(2, len(shp_x)))
-        if self.apply_nonlin is not None:
-            x = self.apply_nonlin(x)
-        tp, fp, fn, _ = get_tp_fp_fn_tn(x, y, axes, loss_mask, False)
-        nominator = 2 * tp + self.smooth
-        denominator = 2 * tp + fp + fn + self.smooth
-        dc = nominator / denominator
-        if not self.do_bg:
-            if self.batch_dice:
-                dc = dc[1:]
-            else:
-                dc = dc[:, 1:]
-        dc = dc.mean()
-        return dc
-
 def diceCoeff(pred, gt, smooth=1e-5, activation='sigmoid'):
     r""" computational formula：
         dice = (2 * (pred ∩ gt)) / (pred ∪ gt)
@@ -278,6 +198,37 @@ class WeightCrossEntropyLoss(nn.Module):
         if weight is not None:
             loss = loss *weight
         return loss.mean()
+
+class WeightCrossEntropyLossV2(nn.Module):
+    def __init__(self, args):
+        super().__init__()
+        self.args = args
+        self.reduce=True
+        self.reduction="mean"
+
+    def forward(self,input,target,weight = None):
+        # 这里对input所有元素求exp
+        exp = torch.exp(input)
+        # 根据target的索引，在exp第一维取出元素值，这是softmax的分子
+        tmp1 = exp.gather(1,target.unsqueeze(1)).squeeze()
+        # 在exp第一维求和，这是softmax的分母
+        tmp2 = exp.sum(1)
+        # softmax公式：ei / sum(ej)
+        softmax = tmp1/tmp2
+        # cross-entropy公式： -yi * log(pi)
+        # 因为target的yi为1，其余为0，所以在tmp1直接把目标拿出来，
+        # 公式中的pi就是softmax的结果
+        log = -torch.log(softmax)
+        if weight is not None:
+            log = log * weight
+        # 官方实现中，reduction有mean/sum及none
+        # 只是对交叉熵后处理的差别
+        if not self.reduce:
+            return log
+        if self.reduction == "mean": return log.mean()
+        elif self.reduction == "sum": return log.sum()
+        else:
+            raise NotImplementedError('unkowned reduction')
 
 def get_tp_fp_fn_tn(net_output, gt, axes=None, mask=None, square=False):
     """

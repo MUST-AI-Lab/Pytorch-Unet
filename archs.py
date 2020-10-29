@@ -16,7 +16,6 @@ class FCNNhub(nn.Module):
         self.conv0_0 = VGGBlock(self.n_channels, nb_filter[0], nb_filter[0])
         self.conv0_1 = VGGBlock(nb_filter[0], nb_filter[0], nb_filter[0])
         self.final = nn.Conv2d(nb_filter[0], self.n_classes, kernel_size=1)
-        self.bn_out = nn.BatchNorm2d(self.n_classes)
 
     def ajust_padding(self,x1,x2):
         diffY = x1.size()[2] - x2.size()[2]
@@ -35,7 +34,6 @@ class FCNNhub(nn.Module):
         x0_0 = self.conv0_0(input)
         x0_1 = self.conv0_1(x0_0)
         output = self.final(x0_1)
-        output=self.bn_out(output)
         return output
 
 class VGGBlock(nn.Module):
