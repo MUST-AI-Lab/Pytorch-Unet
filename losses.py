@@ -12,10 +12,11 @@ try:
 except ImportError:
     pass
 
-__all__ = ['BCEDiceLoss', 'LovaszHingeLoss','WeightBCELoss','WeightBCEDiceLoss','GDL','SoftDiceLoss','FocalLoss','MultiFocalLoss','SoftDiceLossV2','WeightCrossEntropyLoss',
-'WeightCrossEntropyLossV2']
+__all__ = ['BCEDiceLoss', 'LovaszHingeLoss','WeightBCELoss','WeightBCEDiceLoss','FocalLoss','MultiFocalLoss','SoftDiceLossV2','WeightCrossEntropyLoss',
+'WeightCrossEntropyLossV2','DiceLossV3','ASLLoss','ASLLossOrigin']
 
 # --------------------------- BINARY LOSSES ---------------------------
+# ================================================
 class FocalLoss(nn.Module):
     def __init__(self,args, alpha=0.25, gamma=2, weight=None, ignore_index=255):
         super(FocalLoss, self).__init__()
@@ -112,13 +113,13 @@ class LovaszHingeLoss(nn.Module):
         return loss
 
 # --------------------------- MULTICLASS LOSSES ---------------------------
+# ================================================
 
 # --------------------------- dice series ---------------------------
 def diceCoeff(pred, gt, smooth=1e-5, activation='sigmoid'):
     r""" computational formula：
         dice = (2 * (pred ∩ gt)) / (pred ∪ gt)
     """
- 
     if activation is None or activation == "none":
         activation_fn = lambda x: x
     elif activation == "sigmoid":
@@ -127,9 +128,8 @@ def diceCoeff(pred, gt, smooth=1e-5, activation='sigmoid'):
         activation_fn = nn.Softmax2d()
     else:
         raise NotImplementedError("Activation implemented for sigmoid and softmax2d 激活函数的操作")
- 
+
     pred = activation_fn(pred)
- 
     N = gt.size(0)
     pred_flat = pred.view(N, -1)
     gt_flat = gt.view(N, -1)
@@ -137,7 +137,6 @@ def diceCoeff(pred, gt, smooth=1e-5, activation='sigmoid'):
     intersection = (pred_flat * gt_flat).sum(1)
     unionset = pred_flat.sum(1) + gt_flat.sum(1)
     loss = (2 * intersection + smooth) / (unionset + smooth)
- 
     return loss.sum() / N
 
 class SoftDiceLossV2(nn.Module):
@@ -167,6 +166,96 @@ class SoftDiceLossV2(nn.Module):
                 class_dice.append(weight[0][i]*diceCoeff(y_pred[:, i:i + 1, :], y_onehot[:, i:i + 1, :], activation=self.activation))
         mean_dice = sum(class_dice) / len(class_dice)
         return 1 - mean_dice
+class DiceLossV3(nn.Module):
+    __name__ = 'dice_loss'
+    def __init__(self,args, activation='sigmoid', reduction='mean'):
+        super(DiceLossV3, self).__init__()
+        self.args = args
+        self.activation = activation
+        self.num_classes = args.num_classes
+
+    def forward(self, y_pred, y_true,weight=None):
+        shp_x = y_pred.shape
+        shp_y = y_true.shape
+        if len(shp_x) != len(shp_y):
+            y_true = y_true.view((shp_y[0], 1, *shp_y[1:]))
+        target = torch.zeros(shp_x)
+        if y_pred.device.type == "cuda":
+            target = target.cuda(y_true.device.index)
+        target.scatter_(1, y_true, 1)
+        logit = y_pred
+        if not (target.size() == logit.size()):
+            raise ValueError("Target size ({}) must be the same as logit size ({})".format(target.size(), logit.size()))    
+        preds = torch.sigmoid(logit)
+        sum_dims = list(range(1, logit.dim()))
+
+        if weight is None:
+            dice = 2 * torch.sum(preds * target, dim=sum_dims) / torch.sum(preds ** 2 + target ** 2, dim=sum_dims)
+        else:
+            dice = 2 * torch.sum(weight * preds * target, dim=sum_dims) \
+                / torch.sum(weight * (preds ** 2 + target ** 2), dim=sum_dims)
+        loss = 1 - dice
+        return loss.mean()
+class ASLLoss(nn.Module):
+    __name__ = 'ASLLoss'
+    def __init__(self,args, activation='sigmoid', reduction='mean'):
+        super(ASLLoss, self).__init__()
+        self.args = args
+        self.activation = activation
+        self.num_classes = args.num_classes
+        self.beta =1.5
+
+    def forward(self, y_pred, y_true,weight=None):
+        shp_x = y_pred.shape
+        shp_y = y_true.shape
+        if len(shp_x) != len(shp_y):
+            y_true = y_true.view((shp_y[0], 1, *shp_y[1:]))
+        target = torch.zeros(shp_x)
+        if y_pred.device.type == "cuda":
+            target = target.cuda(y_true.device.index)
+        target.scatter_(1, y_true, 1)
+        logit = y_pred
+        if not (target.size() == logit.size()):
+            raise ValueError("Target size ({}) must be the same as logit size ({})".format(target.size(), logit.size()))
+        preds = torch.sigmoid(logit)
+        sum_dims = list(range(1, logit.dim()))
+        if weight is None:
+            f_beta = (1 + self.beta ** 2) * torch.sum(preds * target, dim=sum_dims) \
+                 / torch.sum(self.beta ** 2 * target ** 2 + preds ** 2, dim=sum_dims)
+        else:
+            f_beta = (1 + self.beta ** 2) * torch.sum(weight * preds * target, dim=sum_dims) \
+                 / torch.sum(weight * (self.beta ** 2 * target ** 2 + preds ** 2), dim=sum_dims)
+        loss = 1 - f_beta
+        return loss.mean()
+class ASLLossOrigin(nn.Module):
+    __name__ = 'ASLLossOrigin'
+    def __init__(self,args, activation='sigmoid', reduction='mean'):
+        super(ASLLossOrigin, self).__init__()
+        self.args = args
+        self.activation = activation
+        self.num_classes = args.num_classes
+        self.beta =1.5
+
+    def forward(self, y_pred, y_true,weight=None):
+        shp_x = y_pred.shape
+        shp_y = y_true.shape
+        if len(shp_x) != len(shp_y):
+            y_true = y_true.view((shp_y[0], 1, *shp_y[1:]))
+        target = torch.zeros(shp_x)
+        if y_pred.device.type == "cuda":
+            target = target.cuda(y_true.device.index)
+        target.scatter_(1, y_true, 1)
+        logit = y_pred
+        if not (target.size() == logit.size()):
+            raise ValueError("Target size ({}) must be the same as logit size ({})".format(target.size(), logit.size()))
+        preds = torch.sigmoid(logit)
+        sum_dims = list(range(1, logit.dim()))
+        f_beta = (1 + self.beta ** 2) * torch.sum(preds * target, dim=sum_dims) \
+             / ((1 + self.beta ** 2) * torch.sum(preds * target, dim=sum_dims) +
+                self.beta ** 2 * torch.sum((1 - preds) * target, dim=sum_dims) +
+                torch.sum(preds * (1 - target), dim=sum_dims))
+        loss = 1 - f_beta
+        return loss.mean()
 
 # ---------------------------entropy series---------------------------
 class MultiFocalLoss(nn.Module):
@@ -198,7 +287,6 @@ class WeightCrossEntropyLoss(nn.Module):
         if weight is not None:
             loss = loss *weight
         return loss.mean()
-
 class WeightCrossEntropyLossV2(nn.Module):
     def __init__(self, args):
         super().__init__()
