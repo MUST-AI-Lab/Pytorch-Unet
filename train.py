@@ -62,7 +62,8 @@ def get_args():
                         help='a seed  for initial val', dest='seed')
     parser.add_argument('--device', default='cuda',
                         help='choose device', dest='device')
-
+    parser.add_argument('--device_id', type=int, default=0,
+                        help='a number for choose device', dest='device_id')
     # model
     parser.add_argument('--arch', '-a', metavar='ARCH', default='FCNNhub',
                         choices=ARCH_NAMES,
@@ -76,7 +77,7 @@ def get_args():
                         help='number of classes')
 
     # loss
-    parser.add_argument('--loss', default='ASLLossOrigin',
+    parser.add_argument('--loss', default='WeightCrossEntropyLoss',
                         choices=LOSS_NAMES,
                         help='loss: ' +
                         ' | '.join(LOSS_NAMES) +
@@ -365,6 +366,7 @@ if __name__ == '__main__':
     args = get_args()
     if args.device == 'cuda':
         device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        torch.cuda.set_device(args.device_id)
     else:
         device = torch.device('cpu')
     logging.info(f'Using device {device}')

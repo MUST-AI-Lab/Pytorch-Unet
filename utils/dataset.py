@@ -197,7 +197,7 @@ class Cam2007Dataset(Dataset):
             keeper['id'].append(ids)
             total = np.prod(label.shape)
             total_pixel =0
-            for i in range(32):
+            for i in range(len(self.class_names)):
                 state = (label==i).astype(np.int)
                 total_pixel +=  np.sum(state)
                 keeper[self.class_names[i]].append((np.sum(state))/total)
@@ -280,10 +280,15 @@ class Cam2007Dataset(Dataset):
             weight=np.zeros_like(label).astype(np.float)
             max_di = np.max(self.summary_factor)
             e = 2.7182
-            for i in range(label.shape[0]):
-                for j in range(label.shape[1]):
-                    pt = self.summary_factor[label[i][j]]/max_di
-                    weight[i][j] = 1.5*(1/e**pt)
+            for i in range(len(self.class_names)):
+                pt = self.summary_factor[i]/max_di
+                weight[label == i] = 1.5*(1/e**pt)
+            # for i in range(label.shape[0]):
+            #     for j in range(label.shape[1]):
+            #         pt = self.summary_factor[label[i][j]]/max_di
+            #         weight[i][j] = 1.5*(1/e**pt)
+        elif self.args.weight_type == 'pixel_one_image':
+            weight = self.label2pixel_one_image(label)
         elif self.args.weight_type == 'distrubution':
             e = 2.7182
             weight=np.ones_like(self.summary_factor).astype(np.float)
@@ -291,6 +296,10 @@ class Cam2007Dataset(Dataset):
             max_di = np.max(self.summary_factor)
             weight = weight/max_di
             weight = 1.5 *(1/e**weight)
+        elif self.args.weight_type == 'baseline':
+            weight = self.label2weight(label)
+        elif self.args.weight_type == 'baseline_global_prior':
+            weight = self.label2weight_global_prior(label)
         else:
             assert None ,"uknow weight type"
         if self.args.weight_loss:
@@ -330,6 +339,47 @@ class Cam2007Dataset(Dataset):
             np.save('{}/{}/{}.npy'.format(out_path,img,i ), cityscape)
             np.save('{}/{}/{}.npy'.format(out_path,GT,i ), label)
             i +=1
+
+    # a pop up weight for each image stastic
+    def label2pixel_one_image(self,label):
+        weight = np.zeros_like(label, dtype='float32')
+        total = np.prod(label.shape)
+        factor = np.zeros(len(self.class_names), dtype='float32')
+        for i in range(len(self.class_names)):
+                state = (label==i).astype(np.int)
+                factor[i] = np.sum(state)/total
+        max_di = np.max(factor)
+        e = 2.7182
+        for i in range(len(self.class_names)):
+            pt = factor[i]/max_di
+            weight[label == i] = 1.5*(1/e**pt)
+        # for i in range(label.shape[0]):
+        #         for j in range(label.shape[1]):
+        #             pt = factor[label[i][j]]/max_di
+        #             weight[i][j] = 1.5*(1/e**pt)
+        return weight
+
+    # baseline weight for global stastic
+    def label2weight_global_prior(self,label, w_min: float = 1., w_max: float = 2e5):
+        weight = np.zeros_like(label, dtype='float32')
+        K = len(self.class_names) - 1
+        N = np.prod(label.shape)
+        for i in range(len(self.class_names)):
+            weight[label == i] = 1 / (K + 1) * (1/(self.summary_factor[i]+2e-5))#modify to no zero divide
+        # we add clip for learning stability
+        # e.g. if we catch only 1 voxel of some component, the corresponding weight will be extremely high (~1e6)
+        return np.clip(weight, w_min, w_max)
+
+    # baseline weight for each image stastic
+    def label2weight(self,label, w_min: float = 1., w_max: float = 2e5):
+        weight = np.zeros_like(label, dtype='float32')
+        K = len(self.class_names) - 1
+        N = np.prod(label.shape)
+        for i in range(len(self.class_names)):
+            weight[label == i] = N+1 / ((K + 1) * np.sum(label == i)+1)#modify to no zero divide
+        # we add clip for learning stability
+        # e.g. if we catch only 1 voxel of some component, the corresponding weight will be extremely high (~1e6)
+        return np.clip(weight, w_min, w_max)
 
 class DSBDataset(torch.utils.data.Dataset):
     def __init__(self,args, transform=None):
