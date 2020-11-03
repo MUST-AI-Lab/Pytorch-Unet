@@ -77,12 +77,12 @@ def get_args():
                         help='number of classes')
 
     # loss
-    parser.add_argument('--loss', default='WeightCrossEntropyLoss',
+    parser.add_argument('--loss', default='GDL',
                         choices=LOSS_NAMES,
                         help='loss: ' +
                         ' | '.join(LOSS_NAMES) +
                         ' (default: CrossEntropyLoss)')
-    parser.add_argument('--weight_loss', default=True, type=str2bool)
+    parser.add_argument('--weight_loss', default=False, type=str2bool)
     parser.add_argument('--weight_bias', type=float, default=1e-11)
     parser.add_argument('--weight_type', default='pixel')
 

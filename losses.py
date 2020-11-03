@@ -13,7 +13,7 @@ except ImportError:
     pass
 
 __all__ = ['BCEDiceLoss', 'LovaszHingeLoss','WeightBCELoss','WeightBCEDiceLoss','FocalLoss','MultiFocalLoss','SoftDiceLossV2','WeightCrossEntropyLoss',
-'WeightCrossEntropyLossV2','DiceLossV3','ASLLoss','ASLLossOrigin']
+'WeightCrossEntropyLossV2','DiceLossV3','ASLLoss','ASLLossOrigin','GDL']
 
 # --------------------------- BINARY LOSSES ---------------------------
 # ================================================
@@ -185,7 +185,7 @@ class DiceLossV3(nn.Module):
         target.scatter_(1, y_true, 1)
         logit = y_pred
         if not (target.size() == logit.size()):
-            raise ValueError("Target size ({}) must be the same as logit size ({})".format(target.size(), logit.size()))    
+            raise ValueError("Target size ({}) must be the same as logit size ({})".format(target.size(), logit.size()))
         preds = torch.sigmoid(logit)
         sum_dims = list(range(1, logit.dim()))
 
@@ -255,6 +255,42 @@ class ASLLossOrigin(nn.Module):
                 self.beta ** 2 * torch.sum((1 - preds) * target, dim=sum_dims) +
                 torch.sum(preds * (1 - target), dim=sum_dims))
         loss = 1 - f_beta
+        return loss.mean()
+# Generalized Dice loss
+class GDL(nn.Module):
+    __name__ = 'dice_loss'
+    def __init__(self,args, activation='sigmoid', reduction='mean'):
+        super(GDL, self).__init__()
+        self.args = args
+        self.activation = activation
+        self.num_classes = args.num_classes
+
+    def forward(self, y_pred, y_true,weight=None):
+        shp_x = y_pred.shape
+        shp_y = y_true.shape
+        if len(shp_x) != len(shp_y):
+            y_true = y_true.view((shp_y[0], 1, *shp_y[1:]))
+        target = torch.zeros(shp_x)
+        if y_pred.device.type == "cuda":
+            target = target.cuda(y_true.device.index)
+        target.scatter_(1, y_true, 1)
+        logit = y_pred
+        preds = torch.sigmoid(logit)
+        preds_bg = 1 - preds  # bg = background
+        preds = torch.cat([preds, preds_bg], dim=1)
+
+        target_bg = 1 - target
+        target = torch.cat([target, target_bg], dim=1)
+
+        sp_dims = list(range(2, logit.dim()))
+        weight=None
+        weight = 1 / (1 + torch.sum(target, dim=sp_dims) ** 2)
+
+        generalized_dice = 2 * torch.sum(weight * torch.sum(preds * target, dim=sp_dims), dim=-1) \
+                    / torch.sum(weight * torch.sum(preds ** 2 + target ** 2, dim=sp_dims), dim=-1)
+
+        loss = 1 - generalized_dice
+
         return loss.mean()
 
 # ---------------------------entropy series---------------------------
