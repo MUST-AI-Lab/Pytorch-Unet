@@ -77,7 +77,7 @@ def get_args():
                         help='number of classes')
 
     # loss
-    parser.add_argument('--loss', default='GDL',
+    parser.add_argument('--loss', default='MultiFocalLoss',
                         choices=LOSS_NAMES,
                         help='loss: ' +
                         ' | '.join(LOSS_NAMES) +
