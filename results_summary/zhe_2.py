@@ -7,11 +7,11 @@ import pandas as pd
 
 csv_data = pd.read_csv("./result/weight_momentum.csv")
 momentum=csv_data['mon']
-cp1 = csv_data['focal']
-cp2 = csv_data['wuzhou_focal']
+cp1 = csv_data['wuzhou_focal_baseline_global']
+cp2 = csv_data['wuzhou_focal_baseline']
 
-l1=plt.plot(momentum,cp1,'r-',label=' focal loss')
-l2=plt.plot(momentum,cp2,'b--',label='focal loss in wuzhou server')
+l1=plt.plot(momentum,cp1,'r-',label=' focal loss baseline weight global prior')
+l2=plt.plot(momentum,cp2,'b--',label='focal loss baseline weight iter prior')
 plt.title('mIOU of focal loss ')
 plt.xlabel('momentum')
 plt.ylabel('miou')
