@@ -19,6 +19,7 @@ from albumentations.augmentations import transforms
 from albumentations.core.composition import Compose, OneOf
 from sklearn.model_selection import train_test_split
 from torch.utils.data import DataLoader, random_split
+from utils.weights_collate import default_collate_with_weight,label2weight_by_prior
 import pandas as pd
 
 __all__ = ['BasicDataset', 'CarvanaDataset','MICDataset','DSBDataset','CityScapesDataset','PascalDataset','Cam2007Dataset']
@@ -94,8 +95,8 @@ class Cam2007Dataset(Dataset):
         n_val = int(len(dataset) * args.val)
         n_train = len(dataset) - n_val
         train, val = random_split(dataset, [n_train, n_val])
-        train_loader = DataLoader(train, batch_size=args.batchsize, shuffle=True, num_workers=args.num_workers, pin_memory=True)
-        val_loader = DataLoader(val, batch_size=args.batchsize, shuffle=False, num_workers=args.num_workers, pin_memory=True)
+        train_loader = DataLoader(train, batch_size=args.batchsize, shuffle=True, num_workers=args.num_workers, pin_memory=True,collate_fn=default_collate_with_weight)
+        val_loader = DataLoader(val, batch_size=args.batchsize, shuffle=False, num_workers=args.num_workers, pin_memory=True,collate_fn=default_collate_with_weight)
         return train_loader,val_loader,n_train,n_val
 
     def __len__(self):
@@ -274,32 +275,57 @@ class Cam2007Dataset(Dataset):
         cityscape,label,_ = self.pairs[idx]
         img = cityscape.astype('float32') / 255
         img = cityscape.transpose(2, 0, 1).astype('float32')
-        # onehot = mask2onehot(label,33)
-        # to onehot
-        if self.args.weight_type == 'pixel':
+        if self.args.weight_type == 'global_test_weight':
             weight=np.zeros_like(label).astype(np.float)
             max_di = np.max(self.summary_factor)
             e = 2.7182
             for i in range(len(self.class_names)):
                 pt = self.summary_factor[i]/max_di
                 weight[label == i] = 1.5*(1/e**pt)
-            # for i in range(label.shape[0]):
-            #     for j in range(label.shape[1]):
-            #         pt = self.summary_factor[label[i][j]]/max_di
-            #         weight[i][j] = 1.5*(1/e**pt)
-        elif self.args.weight_type == 'pixel_one_image':
+        elif self.args.weight_type == 'single_test_weight':
             weight = self.label2pixel_one_image(label)
-        elif self.args.weight_type == 'distrubution':
+        elif self.args.weight_type == 'global_test_distrubution':
             e = 2.7182
             weight=np.ones_like(self.summary_factor).astype(np.float)
             weight=weight*self.summary_factor
             max_di = np.max(self.summary_factor)
             weight = weight/max_di
             weight = 1.5 *(1/e**weight)
-        elif self.args.weight_type == 'baseline':
+        elif self.args.weight_type == 'global_distrubution':
+            weight=np.ones_like(self.summary_factor).astype(np.float)
+            weight=weight*self.summary_factor
+        elif self.args.weight_type == 'single_baseline_weight':
             weight = self.label2weight(label)
-        elif self.args.weight_type == 'baseline_global_prior':
+        elif self.args.weight_type == 'global_baseline_weight':
             weight = self.label2weight_global_prior(label)
+        elif self.args.weight_type == 'batch_baseline_weight':
+            #注意，计算一个batch的统计量权重，需要collate函数配合，并不是在这里计算的。
+            # 故这个选项下是特殊的返回值
+            # from utils.weights_collate import default_collate_with_weight
+            distribution = self.label2distribute(label)
+            return  {
+                    'image': img,
+                    'mask': label,
+                    'batch_baseline_weight':distribution,
+                    'class_nums':len(self.class_names)
+            }
+        elif self.args.weight_type == 'batch_test_weight':
+            #注意，计算一个batch的统计量权重，需要collate函数配合，并不是在这里计算的。
+            # 故这个选项下是特殊的返回值
+            # from utils.weights_collate import default_collate_with_weight
+            distribution = self.label2distribute(label)
+            return  {
+                    'image': img,
+                    'mask': label,
+                    'batch_test_weight':distribution,
+                    'class_nums':len(self.class_names)
+            }
+        elif self.args.weight_type == 'none':
+            #防止两个命令冲突
+            return {
+                    'image': torch.from_numpy(img).type(torch.FloatTensor),
+                    'mask': torch.from_numpy(label).type(torch.IntTensor)
+            }
         else:
             assert None ,"uknow weight type"
         if self.args.weight_loss:
@@ -380,6 +406,15 @@ class Cam2007Dataset(Dataset):
         # we add clip for learning stability
         # e.g. if we catch only 1 voxel of some component, the corresponding weight will be extremely high (~1e6)
         return np.clip(weight, w_min, w_max)
+
+    # baseline distribution for one
+    def label2distribute(self,label, w_min: float = 1., w_max: float = 2e5):
+        weight = np.ones(len(self.class_names), dtype='float32')
+        K = len(self.class_names) - 1
+        N = np.prod(label.shape)
+        for i in range(len(self.class_names)):
+            weight[i] =(np.sum(label == i)) / N #Make sure here should be same denominator, Otherwise the value is not allowed to be used to get the weight
+        return weight
 
 class DSBDataset(torch.utils.data.Dataset):
     def __init__(self,args, transform=None):
