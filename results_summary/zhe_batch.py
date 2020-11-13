@@ -7,24 +7,24 @@ import pandas as pd
 
 csv_data = pd.read_csv("./results_summary/weight_momentum_batch.csv")
 momentum=csv_data['momentum']
-cp1 = csv_data['ce_b2']
-cp2 = csv_data['baseline_batch_b2']
-cp3 = csv_data['baseline_global_b2']
-cp4 = csv_data['baseline_single_b2']
-cp5 = csv_data['test_batch_b2']
-cp6 = csv_data['test_global_b2']
-cp7 = csv_data['test_single_b2']
+cp1 = csv_data['ce_b8']
+cp2 = csv_data['baseline_batch_b8']
+cp3 = csv_data['baseline_global_b8']
+cp4 = csv_data['baseline_single_b8']
+cp5 = csv_data['test_batch_b8']
+cp6 = csv_data['test_global_b8']
+cp7 = csv_data['test_single_b8']
 
 
-l1=plt.plot(momentum,cp1,'ro-',label='ce batch=2')
-#l2=plt.plot(momentum,cp2,'b-',label='wce_baseline_batch batch=2')
-l1=plt.plot(momentum,cp5,'b--',label='wce_test01_batch batch=2')
-#l2=plt.plot(momentum,cp3,'-',color='#99aa55',label='wce_baseline_global batch=2')
-l1=plt.plot(momentum,cp6,'--',color='#99aa55',label='wce_test01_global batch=2')
-#l2=plt.plot(momentum,cp4,'-',color='#9955aa',label='wce_baseline_single batch=2')
-l1=plt.plot(momentum,cp7,'--',color='#9955aa',label='wce_test01_single batch=2')
+l1=plt.plot(momentum,cp1,'ro-',label='ce batch=8')
+l2=plt.plot(momentum,cp2,'b-',label='wce_baseline_batch batch=8')
+#l1=plt.plot(momentum,cp5,'b--',label='wce_test01_batch batch=8')
+l2=plt.plot(momentum,cp3,'-',color='#99aa55',label='wce_baseline_global batch=8')
+#l1=plt.plot(momentum,cp6,'--',color='#99aa55',label='wce_test01_global batch=8')
+l2=plt.plot(momentum,cp4,'-',color='#9955aa',label='wce_baseline_single batch=8')
+#l1=plt.plot(momentum,cp7,'--',color='#9955aa',label='wce_test01_single batch=8')
 
-plt.title('mIOU of weight-ce loss var momentum batch size = 2')
+plt.title('mIOU of weight-ce loss var momentum batch size = 4')
 plt.xlabel('momentum')
 plt.ylabel('miou')
 plt.legend()

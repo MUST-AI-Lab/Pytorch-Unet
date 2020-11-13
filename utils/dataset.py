@@ -19,7 +19,7 @@ from albumentations.augmentations import transforms
 from albumentations.core.composition import Compose, OneOf
 from sklearn.model_selection import train_test_split
 from torch.utils.data import DataLoader, random_split
-from utils.weights_collate import default_collate_with_weight,label2weight_by_prior
+from utils.weights_collate import default_collate_with_weight,label2_baseline_weight_by_prior,label2distribute
 import pandas as pd
 
 __all__ = ['BasicDataset', 'CarvanaDataset','MICDataset','DSBDataset','CityScapesDataset','PascalDataset','Cam2007Dataset']
@@ -295,9 +295,11 @@ class Cam2007Dataset(Dataset):
             weight=np.ones_like(self.summary_factor).astype(np.float)
             weight=weight*self.summary_factor
         elif self.args.weight_type == 'single_baseline_weight':
-            weight = self.label2weight(label)
+            summary_factor = label2distribute(len(self.class_names),label)
+            weight = label2_baseline_weight_by_prior(len(self.class_names),summary_factor,label)
         elif self.args.weight_type == 'global_baseline_weight':
-            weight = self.label2weight_global_prior(label)
+            weight = label2_baseline_weight_by_prior(len(self.class_names),self.summary_factor,label)
+            #weight = self.label2weight_global_prior(label)
         elif self.args.weight_type == 'batch_baseline_weight':
             #注意，计算一个batch的统计量权重，需要collate函数配合，并不是在这里计算的。
             # 故这个选项下是特殊的返回值
@@ -379,17 +381,12 @@ class Cam2007Dataset(Dataset):
         for i in range(len(self.class_names)):
             pt = factor[i]/max_di
             weight[label == i] = 1.5*(1/e**pt)
-        # for i in range(label.shape[0]):
-        #         for j in range(label.shape[1]):
-        #             pt = factor[label[i][j]]/max_di
-        #             weight[i][j] = 1.5*(1/e**pt)
         return weight
 
     # baseline weight for global stastic
     def label2weight_global_prior(self,label, w_min: float = 1., w_max: float = 2e5):
         weight = np.zeros_like(label, dtype='float32')
         K = len(self.class_names) - 1
-        N = np.prod(label.shape)
         for i in range(len(self.class_names)):
             weight[label == i] = 1 / (K + 1) * (1/(self.summary_factor[i]+2e-5))#modify to no zero divide
         # we add clip for learning stability
@@ -410,7 +407,6 @@ class Cam2007Dataset(Dataset):
     # baseline distribution for one
     def label2distribute(self,label, w_min: float = 1., w_max: float = 2e5):
         weight = np.ones(len(self.class_names), dtype='float32')
-        K = len(self.class_names) - 1
         N = np.prod(label.shape)
         for i in range(len(self.class_names)):
             weight[i] =(np.sum(label == i)) / N #Make sure here should be same denominator, Otherwise the value is not allowed to be used to get the weight

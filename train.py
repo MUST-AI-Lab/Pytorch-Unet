@@ -77,14 +77,14 @@ def get_args():
                         help='number of classes')
 
     # loss
-    parser.add_argument('--loss', default='WeightCrossEntropyLoss',
+    parser.add_argument('--loss', default='DiceLossV3',
                         choices=LOSS_NAMES,
                         help='loss: ' +
                         ' | '.join(LOSS_NAMES) +
                         ' (default: CrossEntropyLoss)')
     parser.add_argument('--weight_loss', default='true', type=str2bool)
     parser.add_argument('--weight_bias', type=float, default=1e-11)
-    parser.add_argument('--weight_type', default='batch_test_weight')
+    parser.add_argument('--weight_type', default='single_baseline_weight')
 
     # dataset
     parser.add_argument('--dataset', metavar='DATASET', default='Cam2007Dataset',

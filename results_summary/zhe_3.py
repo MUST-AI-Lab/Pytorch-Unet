@@ -7,24 +7,24 @@ import pandas as pd
 
 csv_data = pd.read_csv("./results_summary/weight_momentum.csv")
 momentum=csv_data['mon']
-cp1 = csv_data['ce']
-cp2 = csv_data['ce_weight']
-cp3 = csv_data['ce_weight_local']
-cp4 = csv_data['ce_baseline_global']
-cp5 = csv_data['ce_baseline']
+cp1 = csv_data['wuzhou_focal']
+cp2 = csv_data['wuzhou_focal_weight']
+cp3 = csv_data['wuzhou_focal_weight_local']
+cp4 = csv_data['wuzhou_focal_baseline_global']
+cp5 = csv_data['wuzhou_focal_baseline']
 # cp6 = csv_data['focal']
 # cp7 = csv_data['dicev2_weight']
 # cp8 = csv_data['dicev2']
 
-l1=plt.plot(momentum,cp1,'ro-',label='ce without weight')
-l2=plt.plot(momentum,cp2,'b-',label='weight ce global prior')
-l1=plt.plot(momentum,cp3,'b--',label='weight ce iter prior')
-l2=plt.plot(momentum,cp4,'-',color='#99aa55',label='baseline weight ce global prior')
-l1=plt.plot(momentum,cp5,'--',color='#99aa55',label='baseline weight ce iter prior')
+l1=plt.plot(momentum,cp1,'ro-',label='focal without weight')
+l2=plt.plot(momentum,cp2,'b-',label='weight focal global prior')
+l1=plt.plot(momentum,cp3,'b--',label='weight focal iter prior')
+l2=plt.plot(momentum,cp4,'-',color='#99aa55',label='baseline weight focal global prior')
+l1=plt.plot(momentum,cp5,'--',color='#99aa55',label='baseline weight focal iter prior')
 # l2=plt.plot(momentum,cp6,'--',color='#ff9955',label='focal loss')
 # l1=plt.plot(momentum,cp7,'-',color='#55aa99',label='weight dicev2 loss')
 # l2=plt.plot(momentum,cp8,'--',color='#55aa99',label='dicev2 loss')
-plt.title('mIOU of weight-ce loss var momentum')
+plt.title('mIOU of weight-focal loss var momentum')
 plt.xlabel('momentum')
 plt.ylabel('miou')
 plt.legend()

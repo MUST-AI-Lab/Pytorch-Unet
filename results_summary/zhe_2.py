@@ -7,12 +7,12 @@ import pandas as pd
 
 csv_data = pd.read_csv("./results_summary/weight_momentum.csv")
 momentum=csv_data['mon']
-cp1 = csv_data['ce_baseline_global']
-cp2 = csv_data['ce_baseline']
+cp1 = csv_data['wuzhou_focal_baseline_global']
+cp2 = csv_data['wuzhou_focal_baseline']
 
-l1=plt.plot(momentum,cp1,'r-',label=' baseline wce loss')
-l2=plt.plot(momentum,cp2,'b--',label='baseline wce loss in  iter weight')
-plt.title('mIOU of ce loss ')
+l1=plt.plot(momentum,cp1,'r-',label=' baseline weight focal loss in global prrior')
+l2=plt.plot(momentum,cp2,'b--',label='baseline weight focal loss in  iter prrior')
+plt.title('mIOU of focal loss ')
 plt.xlabel('momentum')
 plt.ylabel('miou')
 plt.legend()

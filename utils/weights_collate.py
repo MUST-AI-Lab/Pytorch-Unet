@@ -6,10 +6,17 @@ import re
 from torch._six import container_abcs, string_classes, int_classes
 np_str_obj_array_pattern = re.compile(r'[SaUO]')
 
-def label2weight_by_prior(class_numbers,summary_factor,label, w_min: float = 1., w_max: float = 2e5):
+    # baseline distribution for one
+def label2distribute(class_numbers,label, w_min: float = 1., w_max: float = 2e5):
+    weight = np.ones(class_numbers, dtype='float32')
+    N = np.prod(label.shape)
+    for i in range(class_numbers):
+        weight[i] =(np.sum(label == i)) / N #Make sure here should be same denominator, Otherwise the value is not allowed to be used to get the weight
+    return weight
+
+def label2_baseline_weight_by_prior(class_numbers,summary_factor,label, w_min: float = 1., w_max: float = 2e5):
     weight = np.zeros_like(label, dtype='float32')
     K = class_numbers - 1
-    N = np.prod(label.shape)
     for i in range(class_numbers):
         weight[label == i] = 1 / (K + 1) * (1/(summary_factor[i]+2e-5))#modify to no zero divide
     # we add clip for learning stability
@@ -34,7 +41,7 @@ def default_collate_with_weight(batch):
             avg_factor /= len(batch)
             new_batch = []
             for item in batch:
-                weight = label2weight_by_prior(num_class,item['batch_baseline_weight'],item['mask'])
+                weight = label2_baseline_weight_by_prior(num_class,item['batch_baseline_weight'],item['mask'])
                 new_batch.append({
                      'image': torch.from_numpy(item['image']).type(torch.FloatTensor),
                     'mask': torch.from_numpy(item['mask']).type(torch.IntTensor),
