@@ -23,6 +23,15 @@ def label2_baseline_weight_by_prior(class_numbers,summary_factor,label, w_min: f
     # e.g. if we catch only 1 voxel of some component, the corresponding weight will be extremely high (~1e6)
     return np.clip(weight, w_min, w_max)
 
+def distribution2tensor(class_numbers,summary_factor,label):
+    weight = np.zeros_like(label, dtype='float32')
+    K = class_numbers - 1
+    for i in range(class_numbers):
+        weight[label == i] = summary_factor[i]#modify to no zero divide
+    # we add clip for learning stability
+    # e.g. if we catch only 1 voxel of some component, the corresponding weight will be extremely high (~1e6)
+    return weight
+
 def default_collate_with_weight(batch):
     r"""
     Puts each data field into a tensor with outer dimension batch size
@@ -33,7 +42,7 @@ def default_collate_with_weight(batch):
     elem = batch[0]
     # elem_type = type(elem)
     if isinstance(elem, container_abcs.Mapping):
-        if 'batch_baseline_weight' in elem:
+        if 'batch_baseline_weight' in elem:# for baseline batch_weight
             num_class = elem['class_nums']
             avg_factor = np.zeros(num_class,)
             for item in batch:
@@ -49,7 +58,7 @@ def default_collate_with_weight(batch):
                 })
             re_batch = default_collate(new_batch)
             return re_batch
-        elif 'batch_test_weight' in elem:
+        elif 'batch_test_weight' in elem:# for collate batch_weight
             num_class = elem['class_nums']
             avg_factor = np.zeros(num_class,)
             for item in batch:
@@ -70,6 +79,19 @@ def default_collate_with_weight(batch):
                     'weight':torch.from_numpy(weight).type(torch.FloatTensor)
                 })
             re_batch = default_collate(new_batch)
+        elif 'batch_distrubution' in elem:# for collate batch_distribution
+            num_class = elem['class_nums']
+            avg_factor = np.zeros(num_class,)
+            for item in batch:
+               avg_factor += item['batch_test_weight']
+            avg_factor /= len(batch)
+            for item in batch:
+                new_batch.append({
+                     'image': torch.from_numpy(item['image']).type(torch.FloatTensor),
+                    'mask': torch.from_numpy(item['mask']).type(torch.IntTensor),
+                    'weight':torch.from_numpy(avg_factor.copy()).type(torch.FloatTensor)
+                })
+                re_batch = default_collate(new_batch)
             return re_batch
         else:
             return default_collate(batch)

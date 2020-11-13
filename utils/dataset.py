@@ -19,7 +19,7 @@ from albumentations.augmentations import transforms
 from albumentations.core.composition import Compose, OneOf
 from sklearn.model_selection import train_test_split
 from torch.utils.data import DataLoader, random_split
-from utils.weights_collate import default_collate_with_weight,label2_baseline_weight_by_prior,label2distribute
+from utils.weights_collate import default_collate_with_weight,label2_baseline_weight_by_prior,label2distribute,distribution2tensor
 import pandas as pd
 
 __all__ = ['BasicDataset', 'CarvanaDataset','MICDataset','DSBDataset','CityScapesDataset','PascalDataset','Cam2007Dataset']
@@ -294,6 +294,18 @@ class Cam2007Dataset(Dataset):
         elif self.args.weight_type == 'global_distrubution':
             weight=np.ones_like(self.summary_factor).astype(np.float)
             weight=weight*self.summary_factor
+        elif self.args.weight_type == 'single_distrubution':
+            weight=summary_factor = label2distribute(len(self.class_names),label)
+        elif self.args.weight_type == 'batch_distrubution':
+            #注意，计算一个batch的统计量权重，需要collate函数配合，并不是在这里计算的。
+            # 故这个选项下是特殊的返回值
+            distribution = self.label2distribute(label)
+            return  {
+                    'image': img,
+                    'mask': label,
+                    'batch_distrubution':distribution,
+                    'class_nums':len(self.class_names)
+            }
         elif self.args.weight_type == 'single_baseline_weight':
             summary_factor = label2distribute(len(self.class_names),label)
             weight = label2_baseline_weight_by_prior(len(self.class_names),summary_factor,label)
@@ -322,6 +334,12 @@ class Cam2007Dataset(Dataset):
                     'batch_test_weight':distribution,
                     'class_nums':len(self.class_names)
             }
+        elif self.args.weight_type == 'single_equalizationloss_weight' and self.args.loss == 'EqualizationLoss':
+            summary_factor = label2distribute(len(self.class_names),label)
+            weight = distribution2tensor(len(self.class_names),summary_factor,label)
+        elif self.args.weight_type == 'global_equalizationloss_weight' and self.args.loss == 'EqualizationLoss':
+            weight = distribution2tensor(len(self.class_names),self.summary_factor,label)
+        
         elif self.args.weight_type == 'none':
             #防止两个命令冲突
             return {

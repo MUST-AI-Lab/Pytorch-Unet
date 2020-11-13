@@ -13,7 +13,7 @@ except ImportError:
     pass
 
 __all__ = ['BCEDiceLoss', 'LovaszHingeLoss','WeightBCELoss','WeightBCEDiceLoss','FocalLoss','MultiFocalLoss','SoftDiceLossV2','WeightCrossEntropyLoss',
-'WeightCrossEntropyLossV2','DiceLossV3','ASLLoss','ASLLossOrigin','GDL']
+'WeightCrossEntropyLossV2','DiceLossV3','ASLLoss','ASLLossOrigin','GDL','EqualizationLoss']
 
 # --------------------------- BINARY LOSSES ---------------------------
 # ================================================
@@ -353,6 +353,50 @@ class WeightCrossEntropyLossV2(nn.Module):
         elif self.reduction == "sum": return log.sum()
         else:
             raise NotImplementedError('unkowned reduction')
+
+#this loss functio must have weight 
+# see dataset weight difintion, call this loss function must have both two condition
+class EqualizationLoss(nn.Module):
+    def __init__(self, args,ignore_index=255):
+        super().__init__()
+        self.args = args
+        self.reduce=True
+        self.ignore_index = ignore_index
+        self.ce_fn = nn.CrossEntropyLoss( ignore_index=self.ignore_index,reduce=False)
+
+    def forward(self, preds, labels,weight=None):
+        shp_preds = preds.shape
+        shp_labels = labels.shape
+        if len(shp_preds) != len(shp_labels):
+            labels = labels.view((shp_labels[0], 1, *shp_labels[1:]))
+        onehot = torch.zeros(shp_preds)
+        if preds.device.type == "cuda":
+            onehot = onehot.cuda(labels.device.index)
+        onehot.scatter_(1, labels, 1)
+
+        shp_preds = preds.shape
+        shp_labels = labels.shape
+        if len(shp_preds) == len(shp_labels):
+            labels = labels.squeeze(dim=1)
+        loss = self.ce_fn(preds, labels)
+        distribution = weight
+        if distribution is not None:
+            t_lambda = self.t_lambda(distribution)
+            shp_t = t_lambda.shape
+            t_lambda = t_lambda.view((shp_t[0], 1, *shp_t[1:]))
+            if preds.device.type == "cuda":
+                t_lambda = t_lambda.cuda(labels.device.index)
+            new_weight =  onehot * t_lambda  
+            new_weight = new_weight* (1-softmax_helper(preds))
+            loss = loss * new_weight.sum(dim=1)
+            return loss.mean()
+        else:
+            return loss.mean()
+
+    def t_lambda(self,distribution,tail_radio=0.1):
+        # distribution[B,H,W]
+        return torch.le(distribution,tail_radio).type(torch.FloatTensor)
+
 
 def get_tp_fp_fn_tn(net_output, gt, axes=None, mask=None, square=False):
     """

@@ -9,7 +9,7 @@ class FCNNhub(nn.Module):
         super().__init__()
         self.n_channels = args.input_channels
         self.n_classes = args.num_classes
-        nb_filter = [1]
+        nb_filter = [3]
         self.pool = nn.MaxPool2d(2, 2)
         self.up = nn.Upsample(scale_factor=2, mode='bilinear', align_corners=True)
 
