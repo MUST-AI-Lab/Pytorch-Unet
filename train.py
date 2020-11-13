@@ -361,6 +361,7 @@ def get_criterion(args,model):
 
     return criterion
 
+#main entry
 if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
     args = get_args()
