@@ -77,16 +77,16 @@ def get_args():
                         help='number of classes')
 
     # loss
-    parser.add_argument('--loss', default='FilterLoss',
+    parser.add_argument('--loss', default='LogitAddCELoss',
                         choices=LOSS_NAMES,
                         help='loss: ' +
                         ' | '.join(LOSS_NAMES) +
                         ' (default: CrossEntropyLoss)')
     parser.add_argument('--weight_loss', default='true', type=str2bool)
     parser.add_argument('--weight_bias', type=float, default=1e-11)
-    parser.add_argument('--weight_type', default='global_distribute_weight')
+    parser.add_argument('--weight_type', default='single_distrubution')
     # hyper parameter for FilterLoss
-    parser.add_argument('--tail_radio', type=float, default=1e-2)
+    parser.add_argument('--tail_radio', type=float, default=1.0)
 
     # dataset
     parser.add_argument('--dataset', metavar='DATASET', default='Cam2007Dataset',

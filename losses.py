@@ -13,7 +13,7 @@ except ImportError:
     pass
 
 __all__ = ['BCEDiceLoss', 'LovaszHingeLoss','WeightBCELoss','WeightBCEDiceLoss','FocalLoss','MultiFocalLoss','SoftDiceLossV2','WeightCrossEntropyLoss',
-'WeightCrossEntropyLossV2','DiceLossV3','ASLLoss','ASLLossOrigin','GDL','EqualizationLoss','FilterLoss']
+'WeightCrossEntropyLossV2','DiceLossV3','ASLLoss','ASLLossOrigin','GDL','EqualizationLoss','FilterLoss','LogitDivCELoss','LogitAddCELoss']
 
 # --------------------------- BINARY LOSSES ---------------------------
 # ================================================
@@ -353,6 +353,65 @@ class WeightCrossEntropyLossV2(nn.Module):
         elif self.reduction == "sum": return log.sum()
         else:
             raise NotImplementedError('unkowned reduction')
+
+class LogitDivCELoss(nn.Module):
+    def __init__(self, args,ignore_index=255):
+        super().__init__()
+        self.args = args
+        self.reduce=True
+        self.ignore_index = ignore_index
+        self.ce_fn = nn.CrossEntropyLoss( ignore_index=self.ignore_index,reduce=False)
+
+    def forward(self, preds, labels,weight=None):
+        if weight is not None:
+            shp_weight = weight.shape
+            weight = weight.view(shp_weight[0],shp_weight[1],1,1)
+            preds = preds/(weight+2e-5)
+        loss = self.ce_fn(preds, labels)
+        return loss.mean()
+
+class LogitAddCELoss(nn.Module):
+    def __init__(self, args,ignore_index=255):
+        super().__init__()
+        self.args = args
+        self.reduce=True
+        self.ignore_index = ignore_index
+        self.ce_fn = nn.CrossEntropyLoss( ignore_index=self.ignore_index,reduce=False)
+
+    def forward(self, preds, labels,weight=None):
+        tau = 1.0
+        if weight is not None:
+            shp_weight = weight.shape
+            weight = weight.view(shp_weight[0],shp_weight[1],1,1)
+            addition = tau * torch.log(weight)
+            #addition[addition<0] = 0
+            preds = preds + addition
+        loss = self.ce_fn(preds, labels)
+        return loss.mean()
+
+class  FilterCELoss(nn.Module):
+    def __init__(self, args,ignore_index=255):
+        super().__init__()
+        self.args = args
+        self.reduce=True
+        self.ignore_index = ignore_index
+        self.ce_fn = nn.CrossEntropyLoss( ignore_index=self.ignore_index,reduce=False)
+
+    def forward(self, preds, labels,weight=None):
+        distribution = weight
+        if distribution is not None:
+            ce_filter = self.t_lambda(distribution,self.args.tail_radio)
+            if preds.device.type == "cuda":
+                ce_filter = ce_filter.cuda(labels.device.index)
+            loss = self.ce_fn(preds, labels)
+            loss = loss *ce_filter
+        else:
+            loss = self.ce_fn(preds, labels)
+        return loss.mean()
+
+    def t_lambda(self,distribution,tail_radio=0.1):
+        # distribution[B,H,W]
+        return torch.le(distribution,tail_radio).type(torch.FloatTensor)
 
 
 class  FilterLoss(nn.Module):
