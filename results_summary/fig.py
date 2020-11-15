@@ -46,7 +46,7 @@ def labelcolormap(N):
         return cmap
 cmap= labelcolormap(32)
 
-df=pd.read_csv('./result/detail.csv')
+df=pd.read_csv('./results_summary/detail.csv')
 it = df['val_iou_{}'.format('Animal')][0]
 print(it)
 

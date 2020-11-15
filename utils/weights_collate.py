@@ -79,12 +79,14 @@ def default_collate_with_weight(batch):
                     'weight':torch.from_numpy(weight).type(torch.FloatTensor)
                 })
             re_batch = default_collate(new_batch)
+            return re_batch
         elif 'batch_distrubution' in elem:# for collate batch_distribution
             num_class = elem['class_nums']
             avg_factor = np.zeros(num_class,)
             for item in batch:
-               avg_factor += item['batch_test_weight']
+               avg_factor += item['batch_distrubution']
             avg_factor /= len(batch)
+            new_batch = []
             for item in batch:
                 new_batch.append({
                      'image': torch.from_numpy(item['image']).type(torch.FloatTensor),
@@ -92,6 +94,23 @@ def default_collate_with_weight(batch):
                     'weight':torch.from_numpy(avg_factor.copy()).type(torch.FloatTensor)
                 })
                 re_batch = default_collate(new_batch)
+            return re_batch
+        elif 'batch_distribute_weight' in elem:# batch_equalizationloss_weight
+            num_class = elem['class_nums']
+            avg_factor = np.zeros(num_class,)
+            for item in batch:
+               avg_factor += item['batch_distribute_weight']
+            avg_factor /= len(batch)
+            new_batch = []
+            for item in batch:
+                label=item['mask']
+                weight=distribution2tensor(num_class,avg_factor,label)
+                new_batch.append({
+                     'image': torch.from_numpy(item['image']).type(torch.FloatTensor),
+                    'mask': torch.from_numpy(item['mask']).type(torch.IntTensor),
+                    'weight':torch.from_numpy(weight).type(torch.FloatTensor)
+                })
+            re_batch = default_collate(new_batch)
             return re_batch
         else:
             return default_collate(batch)

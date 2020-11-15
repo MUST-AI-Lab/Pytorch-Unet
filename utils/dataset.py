@@ -334,12 +334,22 @@ class Cam2007Dataset(Dataset):
                     'batch_test_weight':distribution,
                     'class_nums':len(self.class_names)
             }
-        elif self.args.weight_type == 'single_equalizationloss_weight' and self.args.loss == 'EqualizationLoss':
+        elif self.args.weight_type == 'single_distribute_weight':
             summary_factor = label2distribute(len(self.class_names),label)
             weight = distribution2tensor(len(self.class_names),summary_factor,label)
-        elif self.args.weight_type == 'global_equalizationloss_weight' and self.args.loss == 'EqualizationLoss':
+        elif self.args.weight_type == 'global_distribute_weight':
             weight = distribution2tensor(len(self.class_names),self.summary_factor,label)
-        
+        elif self.args.weight_type == 'batch_distribute_weight':
+            #注意，计算一个batch的统计量权重，需要collate函数配合，并不是在这里计算的。
+            # 故这个选项下是特殊的返回值
+            # from utils.weights_collate import default_collate_with_weight
+            distribution = self.label2distribute(label)
+            return  {
+                    'image': img,
+                    'mask': label,
+                    'batch_distribute_weight':distribution,
+                    'class_nums':len(self.class_names)
+            }
         elif self.args.weight_type == 'none':
             #防止两个命令冲突
             return {
