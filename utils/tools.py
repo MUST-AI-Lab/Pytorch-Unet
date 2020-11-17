@@ -124,3 +124,11 @@ def maybe_mkdir_p(directory):
                 # this can sometimes happen when two jobs try to create the same directory at the same time,
                 # especially on network drives.
                 print("WARNING: Folder %s already existed and does not need to be created" % directory)
+
+#获取某个文件夹下所有文件的名字
+def file_name(file_dir): 
+    for root, dirs, files in os.walk(file_dir):
+        # print(root) #当前目录路径
+        # print(dirs) #当前路径下所有子目录
+        # print(files) #当前路径下所有非目录子文件
+        return files

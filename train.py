@@ -77,14 +77,14 @@ def get_args():
                         help='number of classes')
 
     # loss
-    parser.add_argument('--loss', default='LogitAddCELoss',
+    parser.add_argument('--loss', default='EqualizationLoss',
                         choices=LOSS_NAMES,
                         help='loss: ' +
                         ' | '.join(LOSS_NAMES) +
                         ' (default: CrossEntropyLoss)')
     parser.add_argument('--weight_loss', default='true', type=str2bool)
     parser.add_argument('--weight_bias', type=float, default=1e-11)
-    parser.add_argument('--weight_type', default='single_distrubution')
+    parser.add_argument('--weight_type', default='global_baseline_weight')
     # hyper parameter for FilterLoss
     parser.add_argument('--tail_radio', type=float, default=1.0)
 

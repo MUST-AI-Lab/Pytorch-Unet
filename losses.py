@@ -13,7 +13,7 @@ except ImportError:
     pass
 
 __all__ = ['BCEDiceLoss', 'LovaszHingeLoss','WeightBCELoss','WeightBCEDiceLoss','FocalLoss','MultiFocalLoss','SoftDiceLossV2','WeightCrossEntropyLoss',
-'WeightCrossEntropyLossV2','DiceLossV3','ASLLoss','ASLLossOrigin','GDL','EqualizationLoss','FilterLoss','LogitDivCELoss','LogitAddCELoss']
+'WeightCrossEntropyLossV2','DiceLossV3','ASLLoss','ASLLossOrigin','GDL','EqualizationLoss','FilterLoss','LogitDivCELoss','LogitAddCELoss','FilterWCELoss']
 
 # --------------------------- BINARY LOSSES ---------------------------
 # ================================================
@@ -413,6 +413,30 @@ class  FilterCELoss(nn.Module):
         # distribution[B,H,W]
         return torch.le(distribution,tail_radio).type(torch.FloatTensor)
 
+class  FilterWCELoss(nn.Module):
+    def __init__(self, args,ignore_index=255):
+        super().__init__()
+        self.args = args
+        self.reduce=True
+        self.ignore_index = ignore_index
+        self.ce_fn = nn.CrossEntropyLoss( ignore_index=self.ignore_index,reduce=False)
+
+    def forward(self, preds, labels,weight=None):
+        distribution = weight
+        if distribution is not None:
+            baseline_weight = 1 / (self.args.num_classes) * (1/(weight+2e-5))
+            ce_filter = self.t_lambda(distribution,self.args.tail_radio)
+            if preds.device.type == "cuda":
+                ce_filter = ce_filter.cuda(labels.device.index)
+            loss = self.ce_fn(preds, labels)*baseline_weight
+            loss = loss *ce_filter
+        else:
+            loss = self.ce_fn(preds, labels)
+        return loss.mean()
+
+    def t_lambda(self,distribution,tail_radio=0.1):
+        # distribution[B,H,W]
+        return torch.le(distribution,tail_radio).type(torch.FloatTensor)
 
 class  FilterLoss(nn.Module):
     def __init__(self, args,ignore_index=255):
@@ -461,7 +485,6 @@ class  FilterLoss(nn.Module):
         # distribution[B,H,W]
         return torch.le(distribution,tail_radio).type(torch.FloatTensor)
 
-
 #this loss functio must have weight 
 # see dataset weight difintion, call this loss function must have both two condition
 class EqualizationLoss(nn.Module):
@@ -471,14 +494,9 @@ class EqualizationLoss(nn.Module):
         self.reduce=True
         self.ignore_index = ignore_index
         self.ce_fn = nn.CrossEntropyLoss( ignore_index=self.ignore_index,reduce=False)
-        self.epoch_iter = 100 / (self.args.accumulation_step*self.args.batchsize)
-        self.count_iter =0
 
     def forward(self, preds, labels,weight=None):
-        self.count_iter  += 1
-        epoch=(self.count_iter/self.epoch_iter)+1
-        tail_radio =0.30* (1/epoch)**0.8
-        k = 1/epoch
+        tail_radio = 0.1
 
         shp_preds = preds.shape
         shp_labels = labels.shape
@@ -493,22 +511,21 @@ class EqualizationLoss(nn.Module):
         shp_labels = labels.shape
         if len(shp_preds) == len(shp_labels):
             labels = labels.squeeze(dim=1)
-        loss = self.ce_fn(preds, labels)
+
         distribution = weight
         if distribution is not None:
-            inserve_weight = self.weight2baseline(weight)
-            wce = inserve_weight*loss
             t_lambda = self.t_lambda(distribution,tail_radio)
             shp_t = t_lambda.shape
             t_lambda = t_lambda.view((shp_t[0], 1, *shp_t[1:]))
             if preds.device.type == "cuda":
                 t_lambda = t_lambda.cuda(labels.device.index)
-            new_weight =  onehot * t_lambda  
-            new_weight = new_weight* (1-softmax_helper(preds))
-            loss = loss * new_weight.sum(dim=1)
-            loss = k*wce+(1-k)*loss
+
+            eql_w =1 - t_lambda * (1-onehot)
+            loss =  self.ce_fn(preds,labels)
+            loss = loss * eql_w
             return loss.mean()
         else:
+            loss =  self.ce_fn(preds,labels)
             return loss.mean()
     
     def weight2baseline(self,weight):
@@ -519,6 +536,7 @@ class EqualizationLoss(nn.Module):
     def t_lambda(self,distribution,tail_radio=0.1):
         # distribution[B,H,W]
         return torch.le(distribution,tail_radio).type(torch.FloatTensor)
+
 
 
 def get_tp_fp_fn_tn(net_output, gt, axes=None, mask=None, square=False):
