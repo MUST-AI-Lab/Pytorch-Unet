@@ -77,7 +77,7 @@ def get_args():
                         help='number of classes')
 
     # loss
-    parser.add_argument('--loss', default='EqualizationLoss',
+    parser.add_argument('--loss', default='FilterFocalLoss',
                         choices=LOSS_NAMES,
                         help='loss: ' +
                         ' | '.join(LOSS_NAMES) +

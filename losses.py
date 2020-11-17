@@ -13,7 +13,7 @@ except ImportError:
     pass
 
 __all__ = ['BCEDiceLoss', 'LovaszHingeLoss','WeightBCELoss','WeightBCEDiceLoss','FocalLoss','MultiFocalLoss','SoftDiceLossV2','WeightCrossEntropyLoss',
-'WeightCrossEntropyLossV2','DiceLossV3','ASLLoss','ASLLossOrigin','GDL','EqualizationLoss','FilterLoss','LogitDivCELoss','LogitAddCELoss','FilterWCELoss']
+'WeightCrossEntropyLossV2','DiceLossV3','ASLLoss','ASLLossOrigin','GDL','EqualizationLoss','FilterLoss','LogitDivCELoss','LogitAddCELoss','FilterWCELoss',"FilterFocalLoss"]
 
 # --------------------------- BINARY LOSSES ---------------------------
 # ================================================
@@ -389,6 +389,30 @@ class LogitAddCELoss(nn.Module):
         loss = self.ce_fn(preds, labels)
         return loss.mean()
 
+class  FilterFocalLoss(nn.Module):
+    def __init__(self, args,ignore_index=255):
+        super().__init__()
+        self.args = args
+        self.reduce=True
+        self.ignore_index = ignore_index
+        self.focal = MultiFocalLoss(args)
+
+    def forward(self, preds, labels,weight=None):
+        distribution = weight
+        if distribution is not None:
+            _filter = self.t_lambda(distribution,self.args.tail_radio)
+            if preds.device.type == "cuda":
+                _filter = _filter.cuda(labels.device.index)
+            loss = self.focal(preds, labels)
+            loss = loss *_filter
+        else:
+            loss = self.focal(preds, labels)
+        return loss.mean()
+
+    def t_lambda(self,distribution,tail_radio=0.1):
+        # distribution[B,H,W]
+        return torch.le(distribution,tail_radio).type(torch.FloatTensor)
+
 class  FilterCELoss(nn.Module):
     def __init__(self, args,ignore_index=255):
         super().__init__()
@@ -496,7 +520,7 @@ class EqualizationLoss(nn.Module):
         self.ce_fn = nn.CrossEntropyLoss( ignore_index=self.ignore_index,reduce=False)
 
     def forward(self, preds, labels,weight=None):
-        tail_radio = 0.1
+        tail_radio = 0.05
 
         shp_preds = preds.shape
         shp_labels = labels.shape
