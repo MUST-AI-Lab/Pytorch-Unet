@@ -15,12 +15,12 @@ except ImportError:
 __all__ = ['BCEDiceLoss', 'LovaszHingeLoss','WeightBCELoss','WeightBCEDiceLoss','FocalLoss','MultiFocalLoss','SoftDiceLossV2','WeightCrossEntropyLoss',
 'WeightCrossEntropyLossV2','DiceLossV3','ASLLoss','ASLLossOrigin','GDL','EqualizationLoss','FilterLoss','LogitDivCELoss','LogitAddCELoss','FilterWCELoss',"FilterFocalLoss"]
 
-# --------------------------- BINARY LOSSES ---------------------------
+# <--------------------------- BINARY LOSSES --------------------------->
 # ================================================
 class FocalLoss(nn.Module):
     def __init__(self,args, alpha=0.25, gamma=2, weight=None, ignore_index=255):
         super(FocalLoss, self).__init__()
-        self.args = args 
+        self.args = args
         self.alpha = alpha
         self.gamma = gamma
         self.weight = weight
@@ -112,7 +112,7 @@ class LovaszHingeLoss(nn.Module):
 
         return loss
 
-# --------------------------- MULTICLASS LOSSES ---------------------------
+# <--------------------------- MULTICLASS LOSSES --------------------------->
 # ================================================
 
 # --------------------------- dice series ---------------------------
@@ -150,6 +150,8 @@ class SoftDiceLossV2(nn.Module):
  
     def forward(self, y_pred, y_true,weight=None):
         # assert weight ==None, 'SoftDiceLossV2 not yet implement  weight loss'
+        if not self.args.loss_reduce:
+            raise NotImplementedError("self.args.loss_reduce =False not suport by this Loss ")
         shp_x = y_pred.shape
         shp_y = y_true.shape
         if len(shp_x) != len(shp_y):
@@ -175,6 +177,8 @@ class DiceLossV3(nn.Module):
         self.num_classes = args.num_classes
 
     def forward(self, y_pred, y_true,weight=None):
+        if not self.args.loss_reduce:
+            raise NotImplementedError("self.args.loss_reduce =False not suport by this Loss ")
         shp_x = y_pred.shape
         shp_y = y_true.shape
         if len(shp_x) != len(shp_y):
@@ -206,6 +210,8 @@ class ASLLoss(nn.Module):
         self.beta =1.5
 
     def forward(self, y_pred, y_true,weight=None):
+        if not self.args.loss_reduce:
+            raise NotImplementedError("self.args.loss_reduce =False not suport by this Loss ")
         shp_x = y_pred.shape
         shp_y = y_true.shape
         if len(shp_x) != len(shp_y):
@@ -237,6 +243,8 @@ class ASLLossOrigin(nn.Module):
         self.beta =1.5
 
     def forward(self, y_pred, y_true,weight=None):
+        if not self.args.loss_reduce:
+            raise NotImplementedError("self.args.loss_reduce =False not suport by this Loss ")
         shp_x = y_pred.shape
         shp_y = y_true.shape
         if len(shp_x) != len(shp_y):
@@ -266,6 +274,8 @@ class GDL(nn.Module):
         self.num_classes = args.num_classes
 
     def forward(self, y_pred, y_true,weight=None):
+        if not self.args.loss_reduce:
+            raise NotImplementedError("self.args.loss_reduce =False not suport by this Loss ")
         shp_x = y_pred.shape
         shp_y = y_true.shape
         if len(shp_x) != len(shp_y):
@@ -294,6 +304,30 @@ class GDL(nn.Module):
         return loss.mean()
 
 # ---------------------------entropy series---------------------------
+class MultiFocalLossInner(nn.Module):
+    def __init__(self, args ,alpha=0.5, gamma=2, ignore_index=255,reduce=True):
+        super().__init__()
+        self.args = args
+        self.alpha = alpha
+        self.gamma = gamma
+        self.ignore_index = ignore_index
+        self.reduce = reduce
+        self.ce_fn = nn.CrossEntropyLoss( ignore_index=self.ignore_index,reduce=False)
+
+    def forward(self, preds, labels,weight=None):
+        if not self.args.loss_reduce:
+            raise NotImplementedError("self.args.loss_reduce  False=not suport by this Loss  try to use MultiFocalLoss")
+
+        logpt = -1*self.ce_fn(preds, labels)
+        pt = torch.exp(logpt)
+        loss = -((1 - pt) ** self.gamma) * self.alpha * logpt
+        if weight is not None:
+            loss = loss *weight
+        if self.reduce:
+            return loss.mean()
+        else:
+            return loss
+
 class MultiFocalLoss(nn.Module):
     def __init__(self, args ,alpha=0.5, gamma=2, ignore_index=255):
         super().__init__()
@@ -309,7 +343,13 @@ class MultiFocalLoss(nn.Module):
         loss = -((1 - pt) ** self.gamma) * self.alpha * logpt
         if weight is not None:
             loss = loss *weight
-        return loss.mean()
+        if self.args.loss_reduce:
+            return loss.mean()
+        else:
+            return loss
+
+
+
 # a warpper for cross-entropy loss
 class WeightCrossEntropyLoss(nn.Module):
     def __init__(self, args,ignore_index=255):
@@ -322,7 +362,10 @@ class WeightCrossEntropyLoss(nn.Module):
         loss = self.ce_fn(preds, labels)
         if weight is not None:
             loss = loss *weight
-        return loss.mean()
+        if self.args.loss_reduce:
+            return loss.mean()
+        else:
+            return loss
 class WeightCrossEntropyLossV2(nn.Module):
     def __init__(self, args):
         super().__init__()
@@ -331,6 +374,8 @@ class WeightCrossEntropyLossV2(nn.Module):
         self.reduction="mean"
 
     def forward(self,input,target,weight = None):
+        if not self.args.loss_reduce:
+            raise NotImplementedError("self.args.loss_reduce  False=not suport by this Loss ")
         # 这里对input所有元素求exp
         exp = torch.exp(input)
         # 根据target的索引，在exp第一维取出元素值，这是softmax的分子
@@ -354,6 +399,8 @@ class WeightCrossEntropyLossV2(nn.Module):
         else:
             raise NotImplementedError('unkowned reduction')
 
+
+# ---------------------------Logit adjustment series---------------------------
 class LogitDivCELoss(nn.Module):
     def __init__(self, args,ignore_index=255):
         super().__init__()
@@ -368,7 +415,10 @@ class LogitDivCELoss(nn.Module):
             weight = weight.view(shp_weight[0],shp_weight[1],1,1)
             preds = preds/(weight+2e-5)
         loss = self.ce_fn(preds, labels)
-        return loss.mean()
+        if self.args.loss_reduce:
+            return loss.mean()
+        else:
+            return loss
 
 class LogitAddCELoss(nn.Module):
     def __init__(self, args,ignore_index=255):
@@ -377,8 +427,9 @@ class LogitAddCELoss(nn.Module):
         self.reduce=True
         self.ignore_index = ignore_index
         self.ce_fn = nn.CrossEntropyLoss( ignore_index=self.ignore_index,reduce=False)
-
     def forward(self, preds, labels,weight=None):
+        if not self.args.loss_reduce:
+            raise NotImplementedError("self.args.loss_reduce  False=not suport by this Loss ")
         tau = 1.0
         if weight is not None:
             shp_weight = weight.shape
@@ -389,15 +440,19 @@ class LogitAddCELoss(nn.Module):
         loss = self.ce_fn(preds, labels)
         return loss.mean()
 
+
+# ---------------------------Filter series---------------------------
 class  FilterFocalLoss(nn.Module):
     def __init__(self, args,ignore_index=255):
         super().__init__()
         self.args = args
         self.reduce=True
         self.ignore_index = ignore_index
-        self.focal = MultiFocalLoss(args)
+        self.focal = MultiFocalLoss(args,reduce=False)
 
     def forward(self, preds, labels,weight=None):
+        if not self.args.loss_reduce:
+            raise NotImplementedError("self.args.loss_reduce  False=not suport by this Loss ")
         distribution = weight
         if distribution is not None:
             _filter = self.t_lambda(distribution,self.args.tail_radio)
@@ -422,6 +477,8 @@ class  FilterCELoss(nn.Module):
         self.ce_fn = nn.CrossEntropyLoss( ignore_index=self.ignore_index,reduce=False)
 
     def forward(self, preds, labels,weight=None):
+        if not self.args.loss_reduce:
+            raise NotImplementedError("self.args.loss_reduce  False=not suport by this Loss ")
         distribution = weight
         if distribution is not None:
             ce_filter = self.t_lambda(distribution,self.args.tail_radio)
@@ -446,6 +503,8 @@ class  FilterWCELoss(nn.Module):
         self.ce_fn = nn.CrossEntropyLoss( ignore_index=self.ignore_index,reduce=False)
 
     def forward(self, preds, labels,weight=None):
+        if not self.args.loss_reduce:
+            raise NotImplementedError("self.args.loss_reduce  False=not suport by this Loss ")
         distribution = weight
         if distribution is not None:
             baseline_weight = 1 / (self.args.num_classes) * (1/(weight+2e-5))
@@ -471,6 +530,8 @@ class  FilterLoss(nn.Module):
         self.ce_fn = nn.CrossEntropyLoss( ignore_index=self.ignore_index,reduce=False)
 
     def forward(self, preds, labels,weight=None):
+        if not self.args.loss_reduce:
+            raise NotImplementedError("self.args.loss_reduce  False=not suport by this Loss ")
         shp_preds = preds.shape
         shp_labels = labels.shape
         if len(shp_preds) != len(shp_labels):
@@ -520,8 +581,8 @@ class EqualizationLoss(nn.Module):
         self.ce_fn = nn.CrossEntropyLoss( ignore_index=self.ignore_index,reduce=False)
 
     def forward(self, preds, labels,weight=None):
-        tail_radio = 0.05
-
+        if not self.args.loss_reduce:
+            raise NotImplementedError("self.args.loss_reduce  False=not suport by this Loss ")
         shp_preds = preds.shape
         shp_labels = labels.shape
         if len(shp_preds) != len(shp_labels):
@@ -538,7 +599,7 @@ class EqualizationLoss(nn.Module):
 
         distribution = weight
         if distribution is not None:
-            t_lambda = self.t_lambda(distribution,tail_radio)
+            t_lambda = self.t_lambda(distribution,self.args.tail_radio)
             shp_t = t_lambda.shape
             t_lambda = t_lambda.view((shp_t[0], 1, *shp_t[1:]))
             if preds.device.type == "cuda":
@@ -551,7 +612,7 @@ class EqualizationLoss(nn.Module):
         else:
             loss =  self.ce_fn(preds,labels)
             return loss.mean()
-    
+
     def weight2baseline(self,weight):
         K = self.args.num_classes
         beasline_weight = 1/(K )*(1/(weight+2e-5))

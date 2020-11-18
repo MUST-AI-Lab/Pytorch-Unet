@@ -52,7 +52,7 @@ def get_args():
     parser = argparse.ArgumentParser(description='Train the UNet on images and target masks',
                                      formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument('--experiment', default='default')
-    parser.add_argument('-e', '--epochs', metavar='E', type=int, default=50,
+    parser.add_argument('-e', '--epochs', metavar='E', type=int, default=10,
                         help='Number of epochs', dest='epochs')
     parser.add_argument('-b', '--batch-size', metavar='B', type=int, nargs='?', default=1,
                         help='Batch size', dest='batchsize')
@@ -77,17 +77,17 @@ def get_args():
                         help='number of classes')
 
     # loss
-    parser.add_argument('--loss', default='FilterFocalLoss',
+    parser.add_argument('--loss', default='WeightCrossEntropyLoss',
                         choices=LOSS_NAMES,
                         help='loss: ' +
                         ' | '.join(LOSS_NAMES) +
                         ' (default: CrossEntropyLoss)')
-    parser.add_argument('--weight_loss', default='true', type=str2bool)
+    parser.add_argument('--weight_loss', default='false', type=str2bool)
     parser.add_argument('--weight_bias', type=float, default=1e-11)
-    parser.add_argument('--weight_type', default='global_baseline_weight')
+    parser.add_argument('--weight_type', default='none')
     # hyper parameter for FilterLoss
     parser.add_argument('--tail_radio', type=float, default=1.0)
-    parser.add_argument('--loss_reduce', default=True, type=str2bool)# adapt for trainv2 not use in this version
+    parser.add_argument('--loss_reduce', default=False, type=str2bool)
 
     # dataset
     parser.add_argument('--dataset', metavar='DATASET', default='Cam2007Dataset',
@@ -166,6 +166,9 @@ def get_args():
 def train_net(net,device,train_loader,args,nonlinear=softmax_helper):
     net.train()
     avg_meters = {'loss': AverageMeter()}
+    if not args.loss_reduce:
+        for idx in range(args.num_classes):
+            avg_meters['loss_{}'.format(idx)] = AverageMeter()
 
     with tqdm(total=n_train, desc=f'Epoch {epoch + 1}/{args.epochs}', unit='img') as pbar:
         iter =0
@@ -204,7 +207,18 @@ def train_net(net,device,train_loader,args,nonlinear=softmax_helper):
                     loss = criterion(masks_pred, true_masks)
 
             #print(loss)
-            avg_meters['loss'].update(loss.cpu().item())
+            if not args.loss_reduce:
+                avg_meters['loss'].update(loss.mean().cpu().item())
+                loss_np =  np.array([t.cpu().detach().numpy() for t in loss])
+                true_masks_np = np.array([t.cpu().detach().numpy() for t in true_masks] )
+                for idx in range(args.num_classes):
+                    tmp_loss = np.sum(loss_np*(true_masks_np==idx).astype(np.int))
+                    tmp_count = np.sum((true_masks_np==idx).astype(np.int))
+                    avg_meters['loss_{}'.format(idx)].update(tmp_loss/(tmp_count+1))#no zero div
+                loss = loss.mean()
+            else:
+                avg_meters['loss'].update(loss.cpu().item())
+
             pbar.set_postfix(**{'train_loss': avg_meters['loss'].avg})
             iter +=1
             if args.accumulation_step==1:
@@ -225,7 +239,14 @@ def train_net(net,device,train_loader,args,nonlinear=softmax_helper):
                 break
 
         pbar.close()
-    return OrderedDict([('loss', avg_meters['loss'].avg)])
+        redict = None
+        if not args.loss_reduce:
+            redict = OrderedDict([('loss', avg_meters['loss'].avg)])
+            for idx in range(args.num_classes):
+                redict['loss_{}'.format(idx)] = avg_meters['loss_{}'.format(idx)].avg
+        else:
+            redict = OrderedDict([('loss', avg_meters['loss'].avg)])
+    return redict
 
 def eval_net(net, device, val_loader ,args,epoch,nonlinear=softmax_helper,miou_split=True):
     """Evaluation without the densecrf with the dice coefficient"""
@@ -263,6 +284,8 @@ def eval_net(net, device, val_loader ,args,epoch,nonlinear=softmax_helper,miou_s
 
                 if net.n_classes > 1:
                     loss = criterion(mask_pred, true_masks)
+                    if not args.loss_reduce:
+                        loss = loss.mean()
                     avg_meters['loss'].update(loss.cpu().item())
                     pbar.set_postfix(**{'val_loss': avg_meters['loss'].avg})
                     for i in range(imgs.shape[0]):

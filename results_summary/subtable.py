@@ -2,7 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
 
-subtablelist=['ce','ce_baseline_global','ce_baseline','ce_weight','ce_weight_local']
+subtablelist=['ce','ce_baseline_global','ce_baseline','wuzhou_ce','wuzhou_ce_baseline_global','wuzhou_ce_baseline']
 
 csv_data = pd.read_csv("./results_summary/weight_momentum.csv")
 momentum=csv_data['mon']
@@ -19,7 +19,7 @@ for item in subtablelist:
         iter +=1
 
 df = pd.DataFrame(new_table)
-df.to_csv("./results_summary/home_ce.csv",index=None)
+df.to_csv("./results_summary/baseline_table.csv",index=None)
 
 
 
