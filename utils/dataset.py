@@ -211,6 +211,7 @@ class Cam2007Dataset(Dataset):
             factor = np.sum(keeper[item])/len(self.pairs)
             keeper[item].append(factor)
             summary_factor.append(factor)
+        print(summary_factor)
         self.summary_factor = summary_factor
 
     #get pair from npy
