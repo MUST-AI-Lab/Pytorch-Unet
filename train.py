@@ -77,7 +77,7 @@ def get_args():
                         help='number of classes')
 
     # loss
-    parser.add_argument('--loss', default='MultiFocalLossV3',
+    parser.add_argument('--loss', default='EqualizationLossV2',
                         choices=LOSS_NAMES,
                         help='loss: ' +
                         ' | '.join(LOSS_NAMES) +
@@ -163,7 +163,7 @@ def get_args():
 
     return parser.parse_args()
 
-def train_net(net,device,train_loader,args,nonlinear=softmax_helper):
+def train_net(net,device,train_loader,args,epoch,nonlinear=softmax_helper):
     net.train()
     avg_meters = {'loss': AverageMeter()}
 
@@ -193,15 +193,15 @@ def train_net(net,device,train_loader,args,nonlinear=softmax_helper):
                 loss = 0
                 for output in masks_pred:
                     if weight is not None and args.weight_loss:
-                        loss += criterion(output, true_masks,weight)
+                        loss += criterion(output, true_masks,epoch,weight)
                     else:
-                        loss += criterion(output, true_masks)
+                        loss += criterion(output, true_masks,epoch)
                 loss /= len(masks_pred)
             else:
                 if weight is not None and args.weight_loss:
-                    loss = criterion(masks_pred, true_masks,weight)
+                    loss = criterion(masks_pred, true_masks,epoch,weight)
                 else:
-                    loss = criterion(masks_pred, true_masks)
+                    loss = criterion(masks_pred, true_masks,epoch)
 
             #print(loss)
             avg_meters['loss'].update(loss.cpu().item())
@@ -262,7 +262,7 @@ def eval_net(net, device, val_loader ,args,epoch,nonlinear=softmax_helper,miou_s
                     mask_pred = mask_pred[-1]
 
                 if net.n_classes > 1:
-                    loss = criterion(mask_pred, true_masks)
+                    loss = criterion(mask_pred, true_masks,epoch)
                     avg_meters['loss'].update(loss.cpu().item())
                     pbar.set_postfix(**{'val_loss': avg_meters['loss'].avg})
                     for i in range(imgs.shape[0]):
@@ -284,9 +284,9 @@ def eval_net(net, device, val_loader ,args,epoch,nonlinear=softmax_helper,miou_s
                     pred_int = (pred > 0.5).int()
                     pred = (pred > 0.5).float()
                     if args.weight_loss:
-                        loss = criterion(mask_pred, true_masks,weight)
+                        loss = criterion(mask_pred, true_masks,epoch,weight)
                     else:
-                        loss = criterion(mask_pred, true_masks)
+                        loss = criterion(mask_pred, true_masks,epoch)
                     avg_meters['loss'].update(loss.cpu().item())
                     # for i in range(imgs.shape[0]):
                     for i in range(imgs.shape[0]):
@@ -436,7 +436,7 @@ if __name__ == '__main__':
         rounds = range(start_epoch,args.epochs)
         for epoch in rounds:
             # train
-            train_log = train_net(net=net,device=device,train_loader=train_loader,args=args)
+            train_log = train_net(net=net,device=device,train_loader=train_loader,epoch=epoch,args=args)
             #validate
             val_log = eval_net(net=net,device=device,val_loader=val_loader,epoch=epoch,args=args)
 

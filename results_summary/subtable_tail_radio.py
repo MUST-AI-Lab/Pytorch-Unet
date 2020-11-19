@@ -65,11 +65,12 @@ for item in target_list:
 for file_name in file_array:
     csv_data = pd.read_csv("./result/tmp/{}".format(file_name))
     for item in target_list:
-        new_table[item].append(csv_data['val_iou_{}'.format(item)][29])
+        f1 = round(csv_data['val_iou_{}'.format(item)][29],4)
+        new_table[item].append(f1)
 
 
 df = pd.DataFrame(new_table)
-df.to_csv("./results_summary/tail_ce.csv",index=None)
+df.to_csv("./results_summary/tail_focal.csv",index=None)
 
 
 

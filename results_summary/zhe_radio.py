@@ -7,25 +7,26 @@ import pandas as pd
 
 csv_data = pd.read_csv("./results_summary/tail_radio.csv")
 momentum=csv_data['threshold']
-cp1 = csv_data['ce_m0']
-cp2 = csv_data['ce_m90']
-# cp3 = csv_data['wuzhou_focal_weight_local']
-# cp4 = csv_data['wuz
-# hou_focal_baseline_global']
+#cp1 = csv_data['focal_m0']
+#cp2 = csv_data['focal_m90']
+cp3 = csv_data['ce_m0']
+cp4 = csv_data['ce_m90']
 # cp5 = csv_data['wuzhou_focal_baseline']
 # cp6 = csv_data['focal']
 # cp7 = csv_data['dicev2_weight']
 # cp8 = csv_data['dicev2']
 
 # l1=plt.plot(momentum,cp1,'ro-',label='focal without weight')
-l2=plt.plot(momentum,cp1,'b-',label='cross entropy in momentum = 0')
-l1=plt.plot(momentum,cp2,'b--',label='cross entropy in momentum = 0.9')
+#l2=plt.plot(momentum,cp1,'r-',label='focal loss in momentum = 0')
+#l1=plt.plot(momentum,cp2,'r--',label='focal loss in momentum = 0.9')
+l2=plt.plot(momentum,cp3,'b-',label='cross entropy loss in momentum = 0')
+l1=plt.plot(momentum,cp4,'b--',label='cross entropy loss in momentum = 0.9')
 # l2=plt.plot(momentum,cp4,'-',color='#99aa55',label='baseline weight focal global prior')
 # l1=plt.plot(momentum,cp5,'--',color='#99aa55',label='baseline weight focal iter prior')
 # l2=plt.plot(momentum,cp6,'--',color='#ff9955',label='focal loss')
 # l1=plt.plot(momentum,cp7,'-',color='#55aa99',label='weight dicev2 loss')
 # l2=plt.plot(momentum,cp8,'--',color='#55aa99',label='dicev2 loss')
-plt.title('tail threshold ce loss var momentum')
+plt.title('tail threshold  corss entropy loss var momentum')
 plt.xlabel('tail threshold')
 plt.ylabel('miou')
 plt.legend()

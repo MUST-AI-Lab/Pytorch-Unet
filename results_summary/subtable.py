@@ -2,7 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
 
-subtablelist=['ce','ce_baseline_global','ce_baseline','wuzhou_ce','wuzhou_ce_baseline_global','wuzhou_ce_baseline']
+subtablelist=['ce','ce_baseline_global','ce_baseline','wuzhou_ce','wuzhou_ce_baseline_global','wuzhou_ce_baseline','V100_ce','V100_ce_baseline','V100_ce_baseline_global']
 
 csv_data = pd.read_csv("./results_summary/weight_momentum.csv")
 momentum=csv_data['mon']
