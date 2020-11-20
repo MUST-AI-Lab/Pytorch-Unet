@@ -14,7 +14,7 @@ except ImportError:
 
 __all__ = ['BCEDiceLoss', 'LovaszHingeLoss','WeightBCELoss','WeightBCEDiceLoss','FocalLoss','MultiFocalLoss','SoftDiceLossV2','WeightCrossEntropyLoss',
 'WeightCrossEntropyLossV2','DiceLossV3','ASLLoss','ASLLossOrigin','GDL','EqualizationLoss','FilterLoss','LogitDivCELoss','LogitAddCELoss','FilterWCELoss',
-"FilterFocalLoss","MultiFocalLossV3",'EqualizationLossV2']
+"FilterFocalLoss","MultiFocalLossV3",'EqualizationLossV2','FilterFocalLossV2','FilterCELossV2']
 
 # <--------------------------- BINARY LOSSES --------------------------->
 # ================================================
@@ -309,25 +309,51 @@ class MultiFocalLossInner(nn.Module):
     def __init__(self, args ,alpha=0.5, gamma=2, ignore_index=255,reduce=True):
         super().__init__()
         self.args = args
-        self.alpha = alpha
-        self.gamma = gamma
-        self.ignore_index = ignore_index
+        self.num_class = args.num_classes
+        self.alpha = None
+        self.gamma = 2
+        self.size_average = args.loss_reduce
+        self.eps = 1e-6
         self.reduce = reduce
-        self.ce_fn = nn.CrossEntropyLoss( ignore_index=self.ignore_index,reduce=False)
 
-    def forward(self, preds, labels,epoch,weight=None):
+    def forward(self, logit, target,epoch,weight=None):
         if not self.args.loss_reduce:
             raise NotImplementedError("self.args.loss_reduce  False=not suport by this Loss  try to use MultiFocalLoss")
 
-        logpt = -1*self.ce_fn(preds, labels)
-        pt = torch.exp(logpt)
-        loss = -((1 - pt) ** self.gamma) * self.alpha * logpt
-        if weight is not None:
-            loss = loss *weight
+        alpha = weight
+        if logit.dim() > 2:
+            # N,C,d1,d2 -> N,C,m (m=d1*d2*...)
+            logit = logit.view(logit.size(0), logit.size(1), -1)
+            logit = logit.transpose(1, 2).contiguous() # [N,C,d1*d2..] -> [N,d1*d2..,C]
+            logit = logit.view(-1, logit.size(-1)) # [N,d1*d2..,C]-> [N*d1*d2..,C]
+        target = target.view(-1, 1) # [N,d1,d2,...]->[N*d1*d2*...,1]
+        if alpha is not None:
+            alpha = alpha.view(-1, 1) # [N,d1,d2,...]->[N*d1*d2*...,1]
+
+        # -----------legacy way------------
+        #  idx = target.cpu().long()
+        # one_hot_key = torch.FloatTensor(target.size(0), self.num_class).zero_()
+        # one_hot_key = one_hot_key.scatter_(1, idx, 1)
+        # if one_hot_key.device != logit.device:
+        #     one_hot_key = one_hot_key.to(logit.device)
+        # pt = (one_hot_key * logit).sum(1) + epsilon
+
+        # ----------memory saving way--------
+        logit = torch.softmax(logit,dim=1)
+        pt = logit.gather(1, target).view(-1) + self.eps # avoid apply
+        logpt = pt.log()
+
+        if alpha is not None:
+            if alpha.device != logpt.device:
+                alpha = self.alpha.to(logpt.device)
+                alpha_class = alpha.gather(0,target.view(-1))
+                logpt = alpha_class*logpt
+        loss = -1 * torch.pow(torch.sub(1.0, pt), self.gamma) * logpt
+
         if self.reduce:
-            return loss.mean()
-        else:
-            return loss
+            loss = loss.mean()
+
+        return loss
 
 class MultiFocalLoss(nn.Module):
     def __init__(self, args ,alpha=0.5, gamma=2, ignore_index=255):
@@ -545,6 +571,33 @@ class  FilterFocalLoss(nn.Module):
         # distribution[B,H,W]
         return torch.le(distribution,tail_radio).type(torch.FloatTensor)
 
+class  FilterFocalLossV2(nn.Module):
+    def __init__(self, args,ignore_index=255):
+        super().__init__()
+        self.args = args
+        self.reduce=True
+        self.ignore_index = ignore_index
+        self.focal = MultiFocalLossInner(args,reduce=False)
+
+    def forward(self, preds, labels,epoch,weight=None):
+        if not self.args.loss_reduce:
+            raise NotImplementedError("self.args.loss_reduce  False=not suport by this Loss ")
+        distribution = weight
+        if distribution is not None:
+            _filter = self.t_lambda(distribution,self.args.tail_radio)
+            if preds.device.type == "cuda":
+                _filter = _filter.cuda(labels.device.index)
+            loss = self.focal(preds, labels)
+            loss = loss *_filter
+        else:
+            loss = self.focal(preds, labels)
+        return loss.mean()
+
+    def t_lambda(self,distribution,tail_radio=0.1):
+        # distribution[B,H,W]
+        return torch.le(distribution,tail_radio).type(torch.FloatTensor)
+
+
 class  FilterCELoss(nn.Module):
     def __init__(self, args,ignore_index=255):
         super().__init__()
@@ -559,6 +612,42 @@ class  FilterCELoss(nn.Module):
         distribution = weight
         if distribution is not None:
             ce_filter = self.t_lambda(distribution,self.args.tail_radio)
+            if preds.device.type == "cuda":
+                ce_filter = ce_filter.cuda(labels.device.index)
+            loss = self.ce_fn(preds, labels)
+            loss = loss *ce_filter
+        else:
+            loss = self.ce_fn(preds, labels)
+        return loss.mean()
+
+    def t_lambda(self,distribution,tail_radio=0.1):
+        # distribution[B,H,W]
+        return torch.le(distribution,tail_radio).type(torch.FloatTensor)
+
+class  FilterCELossV2(nn.Module):
+    def __init__(self, args,ignore_index=255):
+        super().__init__()
+        self.args = args
+        self.reduce=True
+        self.ignore_index = ignore_index
+        self.ce_fn = nn.CrossEntropyLoss( ignore_index=self.ignore_index,reduce=False)
+
+    def get_tail_radio(self,epoch):
+        if epoch <10:
+            return 1.0
+        elif epoch<15:
+            return 0.26
+        elif epoch<20:
+            return 0.1
+        else:
+            return 0.05
+
+    def forward(self, preds, labels,epoch,weight=None):
+        if not self.args.loss_reduce:
+            raise NotImplementedError("self.args.loss_reduce  False=not suport by this Loss ")
+        distribution = weight
+        if distribution is not None:
+            ce_filter = self.t_lambda(distribution,self.get_tail_radio())
             if preds.device.type == "cuda":
                 ce_filter = ce_filter.cuda(labels.device.index)
             loss = self.ce_fn(preds, labels)
