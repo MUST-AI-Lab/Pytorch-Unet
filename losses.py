@@ -603,10 +603,12 @@ class  FilterFocalLossV2(nn.Module):
             _filter = self.t_lambda(distribution,self.get_tail_radio(epoch))
             if preds.device.type == "cuda":
                 _filter = _filter.cuda(labels.device.index)
-            loss = self.focal(preds, labels)
+            loss = self.focal(preds, labels,epoch)
+            shp_fi = _filter.shape
+            loss = loss.view(-1,shp_fi[1],shp_fi[2])
             loss = loss *_filter
         else:
-            loss = self.focal(preds, labels)
+            loss = self.focal(preds, labels,epoch)
         return loss.mean()
 
     def t_lambda(self,distribution,tail_radio=0.1):
