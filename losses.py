@@ -317,6 +317,7 @@ class MultiFocalLossInner(nn.Module):
         self.reduce = reduce
 
     def forward(self, logit, target,epoch,weight=None):
+        shp_fi = target.shape
         if not self.args.loss_reduce:
             raise NotImplementedError("self.args.loss_reduce  False=not suport by this Loss  try to use MultiFocalLoss")
 
@@ -349,7 +350,7 @@ class MultiFocalLossInner(nn.Module):
                 alpha_class = alpha.gather(0,target.view(-1))
                 logpt = alpha_class*logpt
         loss = -1 * torch.pow(torch.sub(1.0, pt), self.gamma) * logpt
-
+        loss = loss.view(-1,shp_fi[1],shp_fi[2])
         if self.reduce:
             loss = loss.mean()
 
@@ -416,6 +417,7 @@ class MultiFocalLossV3(nn.Module):
         #     raise TypeError('Not support alpha type, expect `int|float|list|tuple|torch.Tensor`')
 
     def forward(self, logit, target,epoch,weight=None):
+        shp_fi = target.shape
         alpha = weight
         if logit.dim() > 2:
             # N,C,d1,d2 -> N,C,m (m=d1*d2*...)
@@ -445,12 +447,11 @@ class MultiFocalLossV3(nn.Module):
                 alpha_class = alpha.gather(0,target.view(-1))
                 logpt = alpha_class*logpt
         loss = -1 * torch.pow(torch.sub(1.0, pt), self.gamma) * logpt
-
+        loss = loss.view(-1,shp_fi[1],shp_fi[2])
         if self.size_average:
             loss = loss.mean()
 
         return loss
-
 
 
 # a warpper for cross-entropy loss
@@ -604,8 +605,6 @@ class  FilterFocalLossV2(nn.Module):
             if preds.device.type == "cuda":
                 _filter = _filter.cuda(labels.device.index)
             loss = self.focal(preds, labels,epoch)
-            shp_fi = _filter.shape
-            loss = loss.view(-1,shp_fi[1],shp_fi[2])
             loss = loss *_filter
         else:
             loss = self.focal(preds, labels,epoch)
@@ -614,7 +613,6 @@ class  FilterFocalLossV2(nn.Module):
     def t_lambda(self,distribution,tail_radio=0.1):
         # distribution[B,H,W]
         return torch.le(distribution,tail_radio).type(torch.FloatTensor)
-
 
 class  FilterCELoss(nn.Module):
     def __init__(self, args,ignore_index=255):
