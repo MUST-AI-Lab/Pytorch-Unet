@@ -82,9 +82,9 @@ def get_args():
                         help='loss: ' +
                         ' | '.join(LOSS_NAMES) +
                         ' (default: CrossEntropyLoss)')
-    parser.add_argument('--weight_loss', default='false', type=str2bool)
+    parser.add_argument('--weight_loss', default='true', type=str2bool)
     parser.add_argument('--weight_bias', type=float, default=1e-11)
-    parser.add_argument('--weight_type', default='none')
+    parser.add_argument('--weight_type', default='single_baseline_weight')
     # hyper parameter for FilterLoss
     parser.add_argument('--tail_radio', type=float, default=1.0)
     parser.add_argument('--loss_reduce', default=False, type=str2bool)
