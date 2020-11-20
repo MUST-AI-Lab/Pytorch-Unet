@@ -579,12 +579,28 @@ class  FilterFocalLossV2(nn.Module):
         self.ignore_index = ignore_index
         self.focal = MultiFocalLossInner(args,reduce=False)
 
+    def get_tail_radio(self,epoch):
+        if epoch <3:
+            return 0.02
+        elif epoch<6:
+            return 0.05
+        elif epoch<9:
+            return 0.1
+        elif epoch<12:
+            return 0.17
+        elif epoch<15:
+            return 0.26
+        elif epoch<18:
+            return 0.29
+        else:
+            return 1.0
+
     def forward(self, preds, labels,epoch,weight=None):
         if not self.args.loss_reduce:
             raise NotImplementedError("self.args.loss_reduce  False=not suport by this Loss ")
         distribution = weight
         if distribution is not None:
-            _filter = self.t_lambda(distribution,self.args.tail_radio)
+            _filter = self.t_lambda(distribution,self.get_tail_radio(epoch))
             if preds.device.type == "cuda":
                 _filter = _filter.cuda(labels.device.index)
             loss = self.focal(preds, labels)
@@ -633,21 +649,27 @@ class  FilterCELossV2(nn.Module):
         self.ce_fn = nn.CrossEntropyLoss( ignore_index=self.ignore_index,reduce=False)
 
     def get_tail_radio(self,epoch):
-        if epoch <10:
-            return 1.0
+        if epoch <3:
+            return 0.02
+        elif epoch<6:
+            return 0.05
+        elif epoch<9:
+            return 0.1
+        elif epoch<12:
+            return 0.17
         elif epoch<15:
             return 0.26
-        elif epoch<20:
-            return 0.1
+        elif epoch<18:
+            return 0.29
         else:
-            return 0.05
+            return 1.0
 
     def forward(self, preds, labels,epoch,weight=None):
         if not self.args.loss_reduce:
             raise NotImplementedError("self.args.loss_reduce  False=not suport by this Loss ")
         distribution = weight
         if distribution is not None:
-            ce_filter = self.t_lambda(distribution,self.get_tail_radio())
+            ce_filter = self.t_lambda(distribution,self.get_tail_radio(epoch))
             if preds.device.type == "cuda":
                 ce_filter = ce_filter.cuda(labels.device.index)
             loss = self.ce_fn(preds, labels)
@@ -797,14 +819,14 @@ class EqualizationLossV2(nn.Module):
         self.ce_fn = nn.CrossEntropyLoss( ignore_index=self.ignore_index,reduce=False)
 
     def get_tail_radio(self,epoch):
-        if epoch <10:
-            return 1.0
-        elif epoch<15:
-            return 0.26
-        elif epoch<20:
-            return 0.1
-        else:
+        if epoch <13:
             return 0.05
+        elif epoch<18:
+            return 0.1
+        elif epoch<23:
+            return 0.17
+        else:
+            return 1.0
 
     def forward(self, preds, labels,epoch,weight=None):
         if not self.args.loss_reduce:
