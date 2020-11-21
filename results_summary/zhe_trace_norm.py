@@ -5,6 +5,7 @@ import pandas as pd
 # ce=[0.3497,0.3556,0.3692,0.3716,0.3735,0.3752,0.3756,0.4223,0.4302,0.4277,0.3945,0.4052,0.4136,0.3354,0.3617,0.3019,0.3682,0.3226,0.3182]
 # focal=[0.3200,0.3152,0.3315,0.3574,0.3633,0.3891,0.3815,0.3868,0.3988,0.4194,0.3921,0.4223,0.4284,0.4019,0.4061,0.3218,0.4140,0.2859,0.3852]
 
+idx = [17, 4, 26, 21, 19, 9, 2, 10, 5, 31, 30, 14, 16, 24, 8, 27, 12, 29, 7, 20, 1, 6, 11, 0, 3, 13, 15, 18, 22, 23, 25, 28]
 class_names = [
             "Animal", "Archway","Bicyclist","Bridge","Building","Car","CartLuggagePram",
             "Child","Column_Pole","Fence","LaneMkgsDriv","LaneMkgsNonDriv","Misc_Text","MotorcycleScooter",
@@ -12,41 +13,30 @@ class_names = [
             "Sky","SUVPickupTruck","TrafficCone","TrafficLight","Train","Tree","Truck_Bus","Tunnel",
             "VegetationMisc","Void","Wall"
         ]
-target=[17,4,26,21,19,9,2,11,5,31,30,14]
-csv_data = pd.read_csv("./result/trainv2_focalv4.csv")
-momentum=range(0,30)
+csv_data = pd.read_csv("./result/default.csv")
+epoch = csv_data['epoch']
 
 print(csv_data)
-for item in target:
-    cp1 = csv_data['train_loss_{}'.format(item)]
-    l1=plt.plot(momentum,cp1,label='{}'.format(class_names[item]))
+final_epoch = []
+for item in idx:
+    cp1 = csv_data['train_final_norm_{}'.format(item)]
+    l1=plt.plot(epoch,cp1,label='{}'.format(class_names[item]))
+    final_epoch.append(csv_data['train_final_norm_{}'.format(item)][9])
 
-plt.title('head classes training loss')
+plt.title('weight_norm')
 plt.xlabel('epoch')
-plt.ylabel('focal loss baseline weight')
+plt.ylabel('weight_norm of ce loss')
 plt.legend()
 plt.show()
 
 plt.cla()
 plt.clf()
 
-tail_target = range(32)
+categories = range(32)
+l1=plt.plot(categories,final_epoch,label='weight norm var class')
 
-for item in tail_target:
-    if item not in target:
-        cp1 = csv_data['train_loss_{}'.format(item)]
-        l1=plt.plot(momentum,cp1,label='{}'.format(class_names[item]))
-
-plt.title('tail classes training loss')
-plt.xlabel('epoch')
-plt.ylabel('focal loss baseline weight')
+plt.title('weight_norm')
+plt.xlabel('head to tail categories')
+plt.ylabel('weight_norm of ce loss')
 plt.legend()
 plt.show()
-
-loss_detail ={}
-for i in range(32):
-    loss_detail[class_names[i]] = csv_data['train_loss_{}'.format(i)][29]
-
-df = pd.DataFrame(data=loss_detail,index = [0])
-df.to_csv("detail_loss_trace_ce.csv",index=False)
-

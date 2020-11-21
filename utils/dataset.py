@@ -209,7 +209,7 @@ class Cam2007Dataset(Dataset):
                 state = (label==i).astype(np.int)
                 total_pixel +=  np.sum(state)
                 keeper[self.class_names[i]].append((np.sum(state))/total)
-            #check sum 
+            #check sum
             assert total == total_pixel,"not total pixel"
 
         keeper['id'].append('total')
@@ -219,6 +219,9 @@ class Cam2007Dataset(Dataset):
             keeper[item].append(factor)
             summary_factor.append(factor)
         print(summary_factor)
+        summary_factor2 = summary_factor.copy()
+        idx = sorted(range(len(summary_factor2)), key=lambda k: summary_factor2[k],reverse=True)
+        print(idx)
         self.summary_factor = summary_factor
 
     #get pair from npy
