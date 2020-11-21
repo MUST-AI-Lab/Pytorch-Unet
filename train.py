@@ -77,14 +77,14 @@ def get_args():
                         help='number of classes')
 
     # loss
-    parser.add_argument('--loss', default='MultiFocalLossV3',
+    parser.add_argument('--loss', default='MultiFocalLossV4',
                         choices=LOSS_NAMES,
                         help='loss: ' +
                         ' | '.join(LOSS_NAMES) +
                         ' (default: CrossEntropyLoss)')
-    parser.add_argument('--weight_loss', default='true', type=str2bool)
+    parser.add_argument('--weight_loss', default='false', type=str2bool)
     parser.add_argument('--weight_bias', type=float, default=1e-11)
-    parser.add_argument('--weight_type', default='single_baseline_weight')
+    parser.add_argument('--weight_type', default='none')
     # hyper parameter for FilterLoss
     parser.add_argument('--tail_radio', type=float, default=1.0)
     parser.add_argument('--loss_reduce', default=True, type=str2bool)# adapt for trainv2 not use in this version

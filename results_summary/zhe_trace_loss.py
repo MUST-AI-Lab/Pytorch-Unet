@@ -13,7 +13,7 @@ class_names = [
             "VegetationMisc","Void","Wall"
         ]
 target=[17,4,26,21,19,9,2,11,5,31,30,14]
-csv_data = pd.read_csv("./result/trainv2_ce.csv")
+csv_data = pd.read_csv("./result/trainv2_focal_baseline_shuffle.csv")
 momentum=range(0,30)
 
 print(csv_data)
@@ -23,7 +23,7 @@ for item in target:
 
 plt.title('head classes training loss')
 plt.xlabel('epoch')
-plt.ylabel('ce_loss')
+plt.ylabel('focal loss baseline weight')
 plt.legend()
 plt.show()
 
@@ -39,7 +39,7 @@ for item in tail_target:
 
 plt.title('tail classes training loss')
 plt.xlabel('epoch')
-plt.ylabel('ce_loss')
+plt.ylabel('focal loss baseline weight')
 plt.legend()
 plt.show()
 

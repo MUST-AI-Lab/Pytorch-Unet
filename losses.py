@@ -14,7 +14,7 @@ except ImportError:
 
 __all__ = ['BCEDiceLoss', 'LovaszHingeLoss','WeightBCELoss','WeightBCEDiceLoss','FocalLoss','MultiFocalLoss','SoftDiceLossV2','WeightCrossEntropyLoss',
 'WeightCrossEntropyLossV2','DiceLossV3','ASLLoss','ASLLossOrigin','GDL','EqualizationLoss','FilterLoss','LogitDivCELoss','LogitAddCELoss','FilterWCELoss',
-"FilterFocalLoss","MultiFocalLossV3",'EqualizationLossV2','FilterFocalLossV2','FilterCELossV2']
+"FilterFocalLoss","MultiFocalLossV3",'EqualizationLossV2','FilterFocalLossV2','FilterCELossV2','MultiFocalLossV4']
 
 # <--------------------------- BINARY LOSSES --------------------------->
 # ================================================
@@ -453,6 +453,83 @@ class MultiFocalLossV3(nn.Module):
 
         return loss
 
+class MultiFocalLossV4(nn.Module):
+    """
+    This is a implementation of Focal Loss with smooth label cross entropy supported which is proposed in
+    'Focal Loss for Dense Object Detection. (https://arxiv.org/abs/1708.02002)'
+        Focal_Loss= -1*alpha*(1-pt)*log(pt)
+    :param num_class:
+    :param alpha: (tensor) 3D or 4D the scalar factor for this criterion
+    :param gamma: (float,double) gamma > 0 reduces the relative loss for well-classified examples (p>0.5) putting more
+                    focus on hard misclassified example
+    :param smooth: (float,double) smooth value when cross entropy
+    :param size_average: (bool, optional) By default, the losses are averaged over each loss element in the batch.
+    """
+
+    def __init__(self, args):
+        super(MultiFocalLossV4, self).__init__()
+        self.args = args
+        self.num_class = args.num_classes
+        self.alpha = None
+        self.gamma = 2
+        self.size_average = args.loss_reduce
+        self.eps = 1e-6
+        self.balance_index=1
+
+        # alpha 是各样本比例，但是这在初始化的时候是未知的，所以直接跳过
+        # 当设置weight的时候则可以进行加权。否则alpha默认视为1
+        # if isinstance(self.alpha, (list, tuple)):
+        #     assert len(self.alpha) == self.num_class
+        #     self.alpha = torch.Tensor(list(self.alpha))
+        # elif isinstance(self.alpha, (float,int)):
+        #     assert 0 < self.alpha < 1.0, 'alpha should be in `(0,1)`)'
+        #     assert  self.balance_index > -1
+        #     alpha = torch.ones((self.num_class))
+        #     alpha *= 1-self.alpha
+        #     alpha[ self.balance_index] = self.alpha
+        #     self.alpha = alpha
+        # elif isinstance(self.alpha, torch.Tensor):
+        #     self.alpha = self.alpha
+        # else:
+        #     raise TypeError('Not support alpha type, expect `int|float|list|tuple|torch.Tensor`')
+
+    def forward(self, logit, target,epoch,weight=None):
+        shp_fi = target.shape
+        alpha = weight
+        if logit.dim() > 2:
+            # N,C,d1,d2 -> N,C,m (m=d1*d2*...)
+            logit = logit.view(logit.size(0), logit.size(1), -1)
+            logit = logit.transpose(1, 2).contiguous() # [N,C,d1*d2..] -> [N,d1*d2..,C]
+            logit = logit.view(-1, logit.size(-1)) # [N,d1*d2..,C]-> [N*d1*d2..,C]
+        target = target.view(-1, 1) # [N,d1,d2,...]->[N*d1*d2*...,1]
+        # -----------legacy way------------
+        #  idx = target.cpu().long()
+        # one_hot_key = torch.FloatTensor(target.size(0), self.num_class).zero_()
+        # one_hot_key = one_hot_key.scatter_(1, idx, 1)
+        # if one_hot_key.device != logit.device:
+        #     one_hot_key = one_hot_key.to(logit.device)
+        # pt = (one_hot_key * logit).sum(1) + epsilon
+
+        # ----------memory saving way--------
+        logit = torch.softmax(logit,dim=1)
+        pt = logit.gather(1, target).view(-1) + self.eps # avoid apply
+        logpt = pt.log()
+
+        # if alpha is not None:
+        #     if alpha.device != logpt.device:
+        #         alpha = self.alpha.to(logpt.device)
+        #         alpha_class = alpha.gather(0,target.view(-1))
+        #         logpt = alpha_class*logpt
+        loss = -1 * torch.pow(torch.sub(1.0, pt), self.gamma) * logpt
+        loss = loss.view(-1,shp_fi[1],shp_fi[2])
+        if alpha is not None:
+            if alpha.device != logpt.device:
+                alpha = self.alpha.to(logpt.device)
+            loss = loss*alpha
+
+        if self.size_average:
+            loss = loss.mean()
+        return loss
 
 # a warpper for cross-entropy loss
 class WeightCrossEntropyLoss(nn.Module):

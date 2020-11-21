@@ -12,7 +12,7 @@ for file_name in file_array:
     cp1 = csv_data['val_mIOU']
     l1=plt.plot(epoch,cp1,label='{}'.format(file_name[:-4]))
 
-plt.title('loss compartion')
+plt.title('ce loss repeat test in v100 with shuffle')
 plt.xlabel('epoch')
 plt.ylabel('miou')
 plt.legend()
