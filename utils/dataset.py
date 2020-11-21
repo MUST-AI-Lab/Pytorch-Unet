@@ -95,14 +95,14 @@ class Cam2007Dataset(Dataset):
         n_val = int(len(dataset) * args.val)
         n_train = len(dataset) - n_val
         train, val = random_split(dataset, [n_train, n_val])
-        
+
         print("image id of train are {}".format(train.indices))
         print("image id of val are {}".format(val.indices))
         import time
         nowTime = time.strftime("%Y-%m-%d %H:%M:%S")
         print(nowTime)
-        
-        train_loader = DataLoader(train, batch_size=args.batchsize, shuffle=False, num_workers=args.num_workers, pin_memory=True,collate_fn=default_collate_with_weight)
+
+        train_loader = DataLoader(train, batch_size=args.batchsize, shuffle=True, num_workers=args.num_workers, pin_memory=True,collate_fn=default_collate_with_weight)
         val_loader = DataLoader(val, batch_size=args.batchsize, shuffle=False, num_workers=args.num_workers, pin_memory=True,collate_fn=default_collate_with_weight)
         return train_loader,val_loader,n_train,n_val
 

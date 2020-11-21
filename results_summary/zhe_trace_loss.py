@@ -13,7 +13,7 @@ class_names = [
             "VegetationMisc","Void","Wall"
         ]
 target=[17,4,26,21,19,9,2,11,5,31,30,14]
-csv_data = pd.read_csv("./results_summary/ce_batch_trace_loss.csv")
+csv_data = pd.read_csv("./result/trainv2_ce.csv")
 momentum=range(0,30)
 
 print(csv_data)
@@ -48,5 +48,5 @@ for i in range(32):
     loss_detail[class_names[i]] = csv_data['train_loss_{}'.format(i)][29]
 
 df = pd.DataFrame(data=loss_detail,index = [0])
-df.to_csv("detail_loss_trace.csv",index=False)
+df.to_csv("detail_loss_trace_ce.csv",index=False)
 
