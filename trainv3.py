@@ -283,6 +283,9 @@ def train_net(net,device,train_loader,args,epoch,nonlinear=softmax_helper):
                 redict['loss_gd_norm_{}'.format(idx)] = avg_meters['loss_gd_norm_{}'.format(idx)].avg
         else:
             redict = OrderedDict([('loss', avg_meters['loss'].avg)])
+            for idx in range(args.num_classes):
+                redict['final_norm_{}'.format(idx)] = avg_meters['final_norm_{}'.format(idx)].avg
+                redict['loss_gd_norm_{}'.format(idx)] = avg_meters['loss_gd_norm_{}'.format(idx)].avg
     return redict
 
 def eval_net(net, device, val_loader ,args,epoch,nonlinear=softmax_helper,miou_split=True):
