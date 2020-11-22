@@ -193,8 +193,10 @@ def train_net(net,device,train_loader,args,epoch,nonlinear=softmax_helper):
     if not args.loss_reduce:
         for idx in range(args.num_classes):
             avg_meters['loss_{}'.format(idx)] = AverageMeter()
-            avg_meters['final_norm_{}'.format(idx)] = AverageMeter()
-            avg_meters['loss_gd_norm_{}'.format(idx)] = AverageMeter()
+
+    for idx in range(args.num_classes):# for init norm statistic
+        avg_meters['final_norm_{}'.format(idx)] = AverageMeter()
+        avg_meters['loss_gd_norm_{}'.format(idx)] = AverageMeter()
 
     with tqdm(total=n_train, desc=f'Epoch {epoch + 1}/{args.epochs}', unit='img') as pbar:
         iter =0
