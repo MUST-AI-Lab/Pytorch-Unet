@@ -5,6 +5,8 @@ from utils.tools import file_name
 
 from tqdm import tqdm
 
+
+# *.csv mIOU in dir
 class_names = [
             "Animal", "Archway","Bicyclist","Bridge","Building","Car","CartLuggagePram",
             "Child","Column_Pole","Fence","LaneMkgsDriv","LaneMkgsNonDriv","Misc_Text","MotorcycleScooter",

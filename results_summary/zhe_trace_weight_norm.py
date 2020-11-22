@@ -3,9 +3,9 @@ import matplotlib.pyplot as plt
 import pandas as pd
 
 
-filename="./result/trace/trainv2_focal.csv"
-lossname ='focal'
-pix="focal"
+filename="./result/trace/GDL.csv"
+lossname ='GDL loss'
+pix="GDL"
 
 weight_norm_kind = 'train_final_norm'
 gradient_norm_kind = 'train_loss_gd_norm'
