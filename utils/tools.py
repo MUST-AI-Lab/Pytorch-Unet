@@ -132,3 +132,15 @@ def file_name(file_dir):
         # print(dirs) #当前路径下所有子目录
         # print(files) #当前路径下所有非目录子文件
         return files
+
+#数据集使用，按行读取
+def sample_array(file_name):
+    f = open(file_name)               # 返回一个文件对象
+    line = f.readline()               # 调用文件的 readline()方法
+    ret = []
+    while line:                 # 后面跟 ',' 将忽略换行符
+        #print(line, end = '')　      # 在 Python 3 中使用
+        ret.append(line[:-1])
+        line = f.readline()
+    f.close()
+    return ret

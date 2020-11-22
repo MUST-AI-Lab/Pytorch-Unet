@@ -90,7 +90,7 @@ def get_args():
     parser.add_argument('--loss_reduce', default=True, type=str2bool)# adapt for trainv2 not use in this version
 
     # dataset
-    parser.add_argument('--dataset', metavar='DATASET', default='Cam2007Dataset',
+    parser.add_argument('--dataset', metavar='DATASET', default='Cam2007DatasetV2',
                         choices=DATASET_NAMES,
                         help='model architecture: ' +
                         ' | '.join(DATASET_NAMES) +
