@@ -88,18 +88,6 @@ class Cam2007DatasetV2(Dataset):
         dataframe.to_csv("Cam2007Dataset.csv",index=False)
 
     def __call__(self,args):
-        # dataset = Cam2007Dataset(args)
-        # dataset.get_pairs()
-        # dataset.get_disturibution()
-        # n_val = int(len(dataset) * args.val)
-        # n_train = len(dataset) - n_val
-        # train, val = random_split(dataset, [n_train, n_val])
-
-        # print("image id of train are {}".format(train.indices))
-        # print("image id of val are {}".format(val.indices))
-        # import time
-        # nowTime = time.strftime("%Y-%m-%d %H:%M:%S")
-        # print(nowTime)
         train = Cam2007DatasetV2(args)
         train.get_pairs("train.txt")
         train.get_disturibution()

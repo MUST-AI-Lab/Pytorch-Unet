@@ -186,6 +186,22 @@ def weight_norm(net,args):
     final_grad = np.reshape(final_grad,(args.num_classes))
     return final,final_grad
 
+def weight_norm_init(net,args):
+    if args.deep_supervision:
+        raise NotImplementedError("weight norm is not suitable for deep_supervision")
+    if net.final is None:
+        raise NotImplementedError("weight norm final is not found")
+    final = None
+    for name,parameters in net.named_parameters():
+        #print(name,':',parameters.size())
+        if name == 'final.weight':
+            final=parameters.cpu().detach().numpy()
+    final = np.array(final)
+    final = np.reshape(final,(args.num_classes,-1))
+    final=np.linalg.norm(final, axis=1, keepdims=True)
+    final = np.reshape(final,(args.num_classes))
+    return final
+
 
 def train_net(net,device,train_loader,args,epoch,nonlinear=softmax_helper):
     net.train()
@@ -272,9 +288,6 @@ def train_net(net,device,train_loader,args,epoch,nonlinear=softmax_helper):
             pbar.update(imgs.shape[0])
             if iter >1000000:#这些代码是测试用的 可以删除掉
                 break
-
-
-
         pbar.close()
         redict = None
         if not args.loss_reduce:
@@ -462,6 +475,12 @@ if __name__ == '__main__':
     criterion = get_criterion(args,net)
     start_epoch =0
 
+    #keep initial net weight norm info here
+    weight_norms = weight_norm_init(net,args)
+    init_norms = OrderedDict()
+    for idx in range(args.num_classes):
+        init_norms['final_norm_{}'.format(idx)] = weight_norms[idx]
+
     #mkdirs for each experiment
     try:
         os.mkdir('./result/{}'.format(args.experiment))
@@ -583,7 +602,16 @@ if __name__ == '__main__':
                     state = {'args':args,'net':net.state_dict(), 'optimizer':optimizer.state_dict(), 'epoch':epoch}
                     torch.save(state,args.dir_checkpoint + f'CP_ex.{args.experiment}_epoch{epoch + 1}_{args.arch}_{args.dataset}.pth')
                     logging.info(f'Checkpoint {epoch + 1} saved !')
+
+        # saving initial weight norm info to final log files
+        init_log = OrderedDict()
+        for m_key in init_norms:
+            #for single file in csv
+            if '{}_{}'.format('train',m_key) not in init_log:
+                init_log['{}_{}'.format('train',m_key)]=[]
+            init_log['{}_{}'.format('train',m_key)].append(init_norms[m_key])
         #for csv
+        pd.DataFrame(init_log).to_csv('./result/{}_init.csv'.format(args.experiment),index=None)
         pd.DataFrame(log).to_csv('./result/{}.csv'.format(args.experiment),index=None)
         writer.close()
     except KeyboardInterrupt:

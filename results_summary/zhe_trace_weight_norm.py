@@ -3,9 +3,12 @@ import matplotlib.pyplot as plt
 import pandas as pd
 
 
-filename="./result/trace/GDL.csv"
-lossname ='GDL loss'
-pix="GDL"
+experiment='default'
+filename="./result/trace/{}.csv".format(experiment)
+init_filename = "./result/trace/{}_init.csv".format(experiment)
+lossname ='CE baseline loss'
+pix="CE_baseline"
+epochs = 10
 
 weight_norm_kind = 'train_final_norm'
 gradient_norm_kind = 'train_loss_gd_norm'
@@ -26,6 +29,7 @@ class_names = [
             "VegetationMisc","Void","Wall"
         ]
 csv_data = pd.read_csv(filename)
+init_csv_data = pd.read_csv(init_filename)
 epoch = csv_data['epoch']
 
 print(csv_data)
@@ -55,6 +59,38 @@ plt.ylabel('')
 plt.legend(framealpha=0.5)
 # plt.show()
 plt.savefig("{}_last.png".format(weight_pix))
+
+plt.cla()
+plt.clf()
+#----------------------------------------------------------------------plot weight norm for  each epoch
+norm_epoch = []
+for item in idx:
+    norm_epoch.append(init_csv_data['{}_{}'.format(weight_norm_kind,item)][0])
+categories = [class_names[x] for x in idx]
+l1=plt.plot(categories,norm_epoch,'ro-',label='{} of last epoch'.format(weight_norm_name))
+plt.title('init {} in {} loss'.format(weight_norm_name,lossname))
+plt.xlabel('head to tail categories')
+plt.xticks(rotation = 270,fontsize=10)
+plt.ylabel('')
+plt.legend(framealpha=0.5)
+plt.savefig("{}_init_epoch.png".format(weight_pix))
+plt.cla()
+plt.clf()
+#----------------------------------------------------------------------init in upper
+for e in range(epochs):
+    norm_epoch = []
+    for item in idx:
+        norm_epoch.append(csv_data['{}_{}'.format(weight_norm_kind,item)][e])
+    categories = [class_names[x] for x in idx]
+    l1=plt.plot(categories,norm_epoch,'ro-',label='{} of last epoch'.format(weight_norm_name))
+    plt.title('{}th epoch:{} in {} loss'.format((e+1),weight_norm_name,lossname))
+    plt.xlabel('head to tail categories')
+    plt.xticks(rotation = 270,fontsize=10)
+    plt.ylabel('')
+    plt.legend(framealpha=0.5)
+    plt.savefig("{}_{}th_epoch.png".format(weight_pix,e))
+    plt.cla()
+    plt.clf()
 
 plt.cla()
 plt.clf()
