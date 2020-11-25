@@ -60,7 +60,7 @@ def get_args():
                         help='Batch size', dest='accumulation_step')
     parser.add_argument('--seed', type=int, default=45,
                         help='a seed  for initial val', dest='seed')
-    parser.add_argument('--device', default='cpu',
+    parser.add_argument('--device', default='cuda',
                         help='choose device', dest='device')
     parser.add_argument('--device_id', type=int, default=0,
                         help='a number for choose device', dest='device_id')
