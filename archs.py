@@ -43,7 +43,7 @@ class FCNNhubTDE(nn.Module):
         x0_1 = self.conv0_1(x0_0)
        #output = self.final(x0_1)
 
-        if True:
+        if self.training:
             self.overline_x = self.mu * self.overline_x + x0_1.detach().cpu().numpy()
             old_weight = self.final.weight.data
             new_weight = self.final.weight.data.clone()
@@ -462,7 +462,7 @@ class UNetTDE(nn.Module):
         x1_3 = self.conv1_3(torch.cat(self.ajust_padding(x1_0, self.up(x2_2)), 1))
         x0_4 = self.conv0_4(torch.cat(self.ajust_padding(x0_0, self.up(x1_3)), 1))
 
-        if True:
+        if self.training:
             self.overline_x = self.mu * self.overline_x + x0_4.detach().cpu().numpy()
             old_weight = self.final.weight.data
             new_weight = self.final.weight.data.clone()
