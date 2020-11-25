@@ -421,6 +421,7 @@ class UNetTDE(nn.Module):
         self.overline_x = torch.zeros((args.batchsize,nb_filter[0],720,960)).numpy()
         self.mu = 0.9
         self.norm_scale = 0.03125      # 1.0 / 32.0
+        self.alpha = 3
 
 
         nb_filter = [32, 64, 128, 256, 512]
