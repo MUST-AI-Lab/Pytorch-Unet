@@ -3,12 +3,12 @@ import matplotlib.pyplot as plt
 import pandas as pd
 
 
-experiment='trainv3_ce_repeat01'
+experiment='default'
 filename="./result/trace/{}.csv".format(experiment)
 init_filename = "./result/trace/{}_init.csv".format(experiment)
-lossname ='CE loss'
-pix="CE_"
-epochs = 30
+lossname ='TDE'
+pix="TDE_"
+epochs = 10
 
 weight_norm_kind = 'train_final_norm'
 gradient_norm_kind = 'train_loss_gd_norm'
