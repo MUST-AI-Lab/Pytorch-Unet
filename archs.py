@@ -63,8 +63,7 @@ class FCNNhubTDE(nn.Module):
 
             c_norm = self.l2_norm(self.embed)
             cos_val, sin_val =self.get_cos_sin(x_norm,c_norm)
-            tde = x_norm-cos_val  * c_norm*self.alpha
-            output=self.final(tde)
+            output=self.final(x_norm) -  (1-cos_val)  *self.final(c_norm)
 
         #resume
         self.final.weight.data = old_weight
@@ -483,8 +482,7 @@ class UNetTDE(nn.Module):
 
             c_norm = self.l2_norm(self.embed)
             cos_val, sin_val =self.get_cos_sin(x_norm,c_norm)
-            tde = x_norm-cos_val  * c_norm*self.alpha
-            output=self.final(tde)
+            output=self.final(x_norm) -  (1-cos_val)  *self.final(c_norm)
 
         #resume
         self.final.weight.data = old_weight

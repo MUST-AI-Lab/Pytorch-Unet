@@ -65,7 +65,7 @@ def get_args():
     parser.add_argument('--device_id', type=int, default=0,
                         help='a number for choose device', dest='device_id')
     # model
-    parser.add_argument('--arch', '-a', metavar='ARCH', default='UNetTDE',
+    parser.add_argument('--arch', '-a', metavar='ARCH', default='FCNNhubTDE',
                         choices=ARCH_NAMES,
                         help='model architecture: ' +
                         ' | '.join(ARCH_NAMES) +
@@ -77,7 +77,7 @@ def get_args():
                         help='number of classes')
 
     # loss
-    parser.add_argument('--loss', default='WeightCrossEntropyLoss',
+    parser.add_argument('--loss', default='MultiFocalLoss',
                         choices=LOSS_NAMES,
                         help='loss: ' +
                         ' | '.join(LOSS_NAMES) +
