@@ -14,7 +14,7 @@ except ImportError:
 
 __all__ = ['BCEDiceLoss', 'LovaszHingeLoss','WeightBCELoss','WeightBCEDiceLoss','FocalLoss','MultiFocalLoss','SoftDiceLossV2','WeightCrossEntropyLoss',
 'WeightCrossEntropyLossV2','DiceLossV3','ASLLoss','ASLLossOrigin','GDL','EqualizationLoss','FilterLoss','LogitDivCELoss','LogitAddCELoss','FilterWCELoss',
-"FilterFocalLoss","MultiFocalLossV3",'EqualizationLossV2','FilterFocalLossV2','FilterCELossV2','MultiFocalLossV4']
+"FilterFocalLoss","MultiFocalLossV3",'EqualizationLossV2','FilterFocalLossV2','FilterCELossV2','FilterCELoss','MultiFocalLossV4']
 
 # <--------------------------- BINARY LOSSES --------------------------->
 # ================================================
