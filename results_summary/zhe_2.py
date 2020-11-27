@@ -7,12 +7,14 @@ import pandas as pd
 
 csv_data = pd.read_csv("./results_summary/weight_momentum.csv")
 momentum=csv_data['mon']
-cp1 = csv_data['ce_baseline']
-cp2 = csv_data['wuzhou_ce_baseline']
+cp1 = csv_data['ce']
+cp2 = csv_data['wuzhou_ce']
+cp3 = csv_data['V100_ce']
 
-l1=plt.plot(momentum,cp1,'r-',label='wce  with single prior weight in device:gtx960')
-l2=plt.plot(momentum,cp2,'b--',label='wce with single prior weight in device:k80')
-plt.title('mIOU of cross entropy loss in single prior ')
+l1=plt.plot(momentum,cp1,'ro-',label='miou of ce loss in  device:gtx960')
+l2=plt.plot(momentum,cp2,'b*-',label='miou of ce loss in device:k80')
+l3=plt.plot(momentum,cp3,'D-',color='#ff9955',label='miou of ce loss in  device:V100')
+plt.title('mIOU of cross entropy loss different machine')
 plt.xlabel('momentum')
 plt.ylabel('miou')
 plt.legend()

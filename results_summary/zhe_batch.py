@@ -6,26 +6,32 @@ import pandas as pd
 # focal=[0.3200,0.3152,0.3315,0.3574,0.3633,0.3891,0.3815,0.3868,0.3988,0.4194,0.3921,0.4223,0.4284,0.4019,0.4061,0.3218,0.4140,0.2859,0.3852]
 
 csv_data = pd.read_csv("./results_summary/weight_momentum_batch.csv")
-momentum=csv_data['momentum']
-cp1 = csv_data['ce_b4']
-cp2 = csv_data['baseline_batch_b4']
-cp3 = csv_data['baseline_global_b4']
-cp4 = csv_data['baseline_single_b4']
-# cp5 = csv_data['test_batch_b8']
-# cp6 = csv_data['test_global_b8']
-# cp7 = csv_data['test_single_b8']
+name = 'cp_baseline_b{}.png'
+batchs=[1,2,4]
 
 
-l1=plt.plot(momentum,cp1,'ro-',label='ce batch=4')
-l2=plt.plot(momentum,cp2,'b-',label='wce_baseline_batch batch=4')
-#l1=plt.plot(momentum,cp5,'b--',label='wce_test01_batch batch=8')
-l2=plt.plot(momentum,cp3,'-',color='#99aa55',label='wce_baseline_global batch=4')
-#l1=plt.plot(momentum,cp6,'--',color='#99aa55',label='wce_test01_global batch=8')
-l2=plt.plot(momentum,cp4,'-',color='#9955aa',label='wce_baseline_single batch=4')
-#l1=plt.plot(momentum,cp7,'--',color='#9955aa',label='wce_test01_single batch=8')
+for batch in batchs:
+    momentum=csv_data['momentum']
+    cp1 = csv_data['ce_b{}'.format(batch)]
+    cp2 = csv_data['baseline_batch_b{}'.format(batch)]
+    cp3 = csv_data['baseline_global_b{}'.format(batch)]
+    cp4 = csv_data['baseline_single_b{}'.format(batch)]
+    # cp5 = csv_data['test_batch_b8']
+    # cp6 = csv_data['test_global_b8']
+    # cp7 = csv_data['test_single_b8']
+    l1=plt.plot(momentum,cp1,'ro-',label='ce batch={}'.format(batch))
+    l2=plt.plot(momentum,cp2,'b-',label='wce_baseline_batch batch={}'.format(batch))
+    #l1=plt.plot(momentum,cp5,'b--',label='wce_test01_batch batch=8')
+    l2=plt.plot(momentum,cp3,'-.',color='#99aa55',label='wce_baseline_global batch={}'.format(batch))
+    #l1=plt.plot(momentum,cp6,'--',color='#99aa55',label='wce_test01_global batch=8')
+    l2=plt.plot(momentum,cp4,'--',color='#9955aa',label='wce_baseline_single batch={}'.format(batch))
+    #l1=plt.plot(momentum,cp7,'--',color='#9955aa',label='wce_test01_single batch=8')
+    plt.title('mIOU of weight-ce loss var momentum batch size = {}'.format(batch))
+    plt.xlabel('momentum')
+    plt.ylabel('miou')
+    plt.legend()
+    plt.savefig(name.format(batch))
+    plt.cla()
+    plt.clf()
 
-plt.title('mIOU of weight-ce loss var momentum batch size = 4')
-plt.xlabel('momentum')
-plt.ylabel('miou')
-plt.legend()
-plt.show()
+

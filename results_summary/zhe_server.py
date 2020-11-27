@@ -7,22 +7,23 @@ import pandas as pd
 
 csv_data = pd.read_csv("./results_summary/weight_momentum.csv")
 momentum=csv_data['mon']
-cp1 = csv_data['ce']
-cp2 = csv_data['wuzhou_ce']
-cp3 = csv_data['ce_baseline']
-cp4 = csv_data['wuzhou_ce_baseline']
-cp5 = csv_data['ce_baseline_global']
-cp6 = csv_data['wuzhou_ce_baseline_global']
+cp1 = csv_data['ce_baseline']
+cp2 = csv_data['ce_baseline_global']
+cp3 = csv_data['wuzhou_ce_baseline']
+cp4 = csv_data['wuzhou_ce_baseline_global']
+cp5 = csv_data['V100_ce_baseline']
+cp6 = csv_data['V100_ce_baseline_global']
 # cp6 = csv_data['focal']
 # cp7 = csv_data['dicev2_weight']
 # cp8 = csv_data['dicev2']
 
-l1=plt.plot(momentum,cp1,'ro--',label='ce loss in device:gtx960')
-l2=plt.plot(momentum,cp2,'bo--',label='ce loss in device:k80')
-l2=plt.plot(momentum,cp3,'r-',label='ce loss in single weight prior device:gtx960')
-l1=plt.plot(momentum,cp4,'b-',label='ce loss in single weight prior device:k80')
-l2=plt.plot(momentum,cp5,'r--',label='ce loss in global weight prior device:gtx960')
-l1=plt.plot(momentum,cp6,'b--',label='ce loss in global weight prior device:k80')
+l2=plt.plot(momentum,cp5,'D-',color='#ff9955',label='ce loss in global weight prior device:V100')
+l1=plt.plot(momentum,cp6,'D--',color='#ff9955',label='ce loss in global weight prior device:V100')
+l1=plt.plot(momentum,cp1,'ro-',label='single_baseline wce loss in device:gtx960')
+l2=plt.plot(momentum,cp2,'ro--',label='global_baseline wce loss in device:gtx960')
+l2=plt.plot(momentum,cp3,'b*-',label='ce loss in single weight prior device:K80')
+l1=plt.plot(momentum,cp4,'b*--',label='ce loss in single weight prior device:k80')
+
 # l2=plt.plot(momentum,cp6,'--',color='#ff9955',label='focal loss')
 # l1=plt.plot(momentum,cp7,'-',color='#55aa99',label='weight dicev2 loss')
 # l2=plt.plot(momentum,cp8,'--',color='#55aa99',label='dicev2 loss')

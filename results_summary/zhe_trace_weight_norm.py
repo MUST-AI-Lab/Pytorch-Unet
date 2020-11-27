@@ -3,11 +3,11 @@ import matplotlib.pyplot as plt
 import pandas as pd
 
 
-experiment='trace_detail_filter'
+experiment='filter_tailredio0.05'
 filename="./result/trace/{}.csv".format(experiment)
 init_filename = "./result/trace/{}_init.csv".format(experiment)
-lossname ='Filterloss'
-pix="Filterloss"
+lossname ='EQloss'
+pix="EQloss"
 epochs = 30
 
 weight_norm_kind = 'train_final_norm'
