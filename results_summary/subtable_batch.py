@@ -6,7 +6,7 @@ subtablelist=['ce_b1','baseline_batch_b1','baseline_global_b1','baseline_single_
 'ce_b2','baseline_batch_b2','baseline_global_b2','baseline_single_b2',
 'ce_b4','baseline_batch_b4','baseline_global_b4','baseline_single_b4']
 
-csv_data = pd.read_csv("./results_summary/weight_momentum_batch.csv")
+csv_data = pd.read_csv("./results_summary/weight_momentum_batch_v100.csv")
 momentum=csv_data['momentum']
 
 new_table = dict()
@@ -21,7 +21,7 @@ for item in subtablelist:
         iter +=1
 
 df = pd.DataFrame(new_table)
-df.to_csv("./results_summary/paper_ce_batch.csv",index=None)
+df.to_csv("./results_summary/paper_ce_batch_v100.csv",index=None)
 
 
 

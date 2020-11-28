@@ -157,7 +157,7 @@ def get_args():
                         help='model architecture: ' +
                         ' | '.join(SAVE_POINTS) +
                         ' (default: StillFalse)')
-    parser.add_argument('--force_save_last', dest='force_save_last', type=str, default=False,
+    parser.add_argument('--force_save_last', dest='force_save_last', type=str, default=True,
                         help='Load model from a .pth file')
 
 
@@ -457,10 +457,11 @@ if __name__ == '__main__':
     if args.load:
         load_from = args.load #备份加载位置，因为args会被替换
         checkpoint = torch.load(args.load, map_location=device)
-        args = checkpoint['args']
-        logging.info(f'''reload training:
-        args:          {args}
-        ''')
+        if 'args' in checkpoint:#兼容设置：因为旧版的部分运行保存没有保存参数args，所以有些读取是没有这个参数的 以免报错
+            args = checkpoint['args']
+            logging.info(f'''reload training:
+            args:          {args}
+            ''')
     #set seed
     set_seed(args.seed)
     # Change here to adapt to your data
@@ -491,14 +492,17 @@ if __name__ == '__main__':
                  f'\t{args.input_channels} input channels\n'
                  f'\t{args.num_classes} output channels (classes)\n')
     if load_from is not None:
-        net.load_state_dict(checkpoint['net'])
-        optimizer.load_state_dict(checkpoint['optimizer'])
-        for state in optimizer.state.values():
-            for k, v in state.items():
-                if torch.is_tensor(v):
-                    state[k] = v.cuda()
-        start_epoch = checkpoint['epoch']
-        logging.info(f'Model loaded from {load_from} in epoch {start_epoch}')
+        if 'args' in checkpoint:#新版保存了 网络状态，优化器状态等，旧版没有，作兼容
+            net.load_state_dict(checkpoint['net'])
+            optimizer.load_state_dict(checkpoint['optimizer'])
+            for state in optimizer.state.values():
+                for k, v in state.items():
+                    if torch.is_tensor(v):
+                        state[k] = v.cuda()
+            start_epoch = checkpoint['epoch']
+            logging.info(f'Model loaded from {load_from} in epoch {start_epoch}')
+        else:
+            net.load_state_dict(checkpoint)
 
     net.to(device=device)
 
@@ -571,7 +575,7 @@ if __name__ == '__main__':
             #force to save check point at last epoch
             if args.force_save_last and epoch == args.epochs-1:
                 state = {'args':args,'net':net.state_dict(), 'optimizer':optimizer.state_dict(), 'epoch':epoch}
-                torch.save(net.state_dict(),args.dir_checkpoint + f'CP_ex.{args.experiment}_epoch{epoch + 1}_{args.arch}_{args.dataset}.pth')
+                torch.save(state,args.dir_checkpoint + f'CP_ex.{args.experiment}_epoch{epoch + 1}_{args.arch}_{args.dataset}.pth')
                 logging.info(f'Checkpoint {epoch + 1} saved !')
             # save check point by condition
             if args.save_check_point:

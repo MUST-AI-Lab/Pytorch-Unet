@@ -67,6 +67,14 @@
             "program": "${file}",
             "console": "integratedTerminal",
             "args": ["--dataset","DSBDataset", "--data_dir",  "dsb2018_96","--input_channels", "3" , "--num_classes" ,"1"]
+        },
+        {
+            "name": "model_checker",
+            "type": "python",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal",
+            "args": ["--dataset","Cam2007DatasetV2","--load","./checkpoint/CP_ex.ce_m0.9_epoch30_UNet_Cam2007DatasetV2.pth"]
         }
     ]
 }

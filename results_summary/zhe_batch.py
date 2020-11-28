@@ -5,8 +5,8 @@ import pandas as pd
 # ce=[0.3497,0.3556,0.3692,0.3716,0.3735,0.3752,0.3756,0.4223,0.4302,0.4277,0.3945,0.4052,0.4136,0.3354,0.3617,0.3019,0.3682,0.3226,0.3182]
 # focal=[0.3200,0.3152,0.3315,0.3574,0.3633,0.3891,0.3815,0.3868,0.3988,0.4194,0.3921,0.4223,0.4284,0.4019,0.4061,0.3218,0.4140,0.2859,0.3852]
 
-csv_data = pd.read_csv("./results_summary/weight_momentum_batch.csv")
-name = 'cp_baseline_b{}.png'
+csv_data = pd.read_csv("./results_summary/weight_momentum_batch_v100.csv")
+name = 'cp_baseline_b{}_v100.png'
 batchs=[1,2,4]
 
 

@@ -97,7 +97,7 @@ class Cam2007DatasetV2(Dataset):
         n_train = len(train)
         n_val = len(val)
 
-        train_loader = DataLoader(train, batch_size=args.batchsize, shuffle=True, num_workers=args.num_workers, pin_memory=True,collate_fn=default_collate_with_weight)
+        train_loader = DataLoader(train, batch_size=args.batchsize, shuffle=False, num_workers=args.num_workers, pin_memory=True,collate_fn=default_collate_with_weight)
         val_loader = DataLoader(val, batch_size=args.batchsize, shuffle=False, num_workers=args.num_workers, pin_memory=True,collate_fn=default_collate_with_weight)
         return train_loader,val_loader,n_train,n_val
 
