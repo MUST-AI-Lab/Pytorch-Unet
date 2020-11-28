@@ -51,8 +51,8 @@ def get_args():
     # base
     parser = argparse.ArgumentParser(description='Train the UNet on images and target masks',
                                      formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    parser.add_argument('--experiment', default='default')
-    parser.add_argument('-e', '--epochs', metavar='E', type=int, default=10,
+    parser.add_argument('--experiment', default='default2')
+    parser.add_argument('-e', '--epochs', metavar='E', type=int, default=30,
                         help='Number of epochs', dest='epochs')
     parser.add_argument('-b', '--batch-size', metavar='B', type=int, nargs='?', default=1,
                         help='Batch size', dest='batchsize')
@@ -163,6 +163,16 @@ def get_args():
 
     return parser.parse_args()
 
+all_ord=2
+
+def logit_norms(logits,args):
+    #print(logits)
+    logits = logits.cpu().detach().numpy()
+    logits = np.array(logits)
+    logits = np.reshape(logits,(args.num_classes,-1))
+    logits_norms=np.linalg.norm(logits, ord=all_ord,axis=1, keepdims=False)
+    return  logits_norms
+
 def weight_norm(net,args):
     if args.deep_supervision:
         raise NotImplementedError("weight norm is not suitable for deep_supervision")
@@ -177,13 +187,11 @@ def weight_norm(net,args):
             final_grad=parameters.grad.cpu().detach().numpy()
     final = np.array(final)
     final = np.reshape(final,(args.num_classes,-1))
-    final=np.linalg.norm(final, axis=1, keepdims=True)
-    final = np.reshape(final,(args.num_classes))
+    final=np.linalg.norm(final,ord=all_ord, axis=1, keepdims=False)
 
     final_grad = np.array(final_grad)
     final_grad = np.reshape(final_grad,(args.num_classes,-1))
-    final_grad=np.linalg.norm(final_grad, axis=1, keepdims=True)
-    final_grad = np.reshape(final_grad,(args.num_classes))
+    final_grad=np.linalg.norm(final_grad, ord=all_ord,axis=1, keepdims=False)
     return final,final_grad
 
 def weight_norm_init(net,args):
@@ -324,6 +332,99 @@ if __name__ == '__main__':
 
     #for csv
     log = OrderedDict()
+    #init csv files
+    for i in range(args.num_classes):
+        log['weight_norm_{}'.format(i)] = []
+        log['gradient_norm_{}'.format(i)] = []
+        log['logit_norm_{}'.format(i)] = []
+        log['iou_{}'.format(i)] = []
 
 
-    
+    net.train() #因为要获得对应的损失梯度，所以需要打开训练开关
+    mask_type = torch.float32 if net.n_classes == 1 else torch.long
+    batch_count = 0
+    avg_meters = {'loss': AverageMeter(),'miou': AverageMeter()}
+    epoch=args.epochs #这里是最后一个epoch
+
+    #测试验证集的图片，获取训练结果的分布
+    with tqdm(total=n_val, desc='Validation round') as pbar:
+        show=False
+        for batch  in val_loader:
+            imgs = batch['image']
+            true_masks = batch['mask']
+            if 'weight' in batch:
+                weight = batch['weight']
+            else:
+                weight = None
+            imgs = imgs.to(device=device, dtype=torch.float32)
+            if weight is not None:
+                weight = weight.to(device=device, dtype=torch.float32)
+            true_masks = true_masks.to(device=device, dtype=mask_type)
+            mask_pred = net(imgs)
+            if args.deep_supervision: #choose final
+                mask_pred = mask_pred[-1]
+
+            if net.n_classes > 1:
+                loss = criterion(mask_pred, true_masks,epoch)
+                if not args.loss_reduce:
+                    loss = loss.mean()
+                #----------------------------check the final round
+                optimizer.zero_grad()
+                loss.backward()
+
+
+                avg_meters['loss'].update(loss.cpu().item())
+                pbar.set_postfix(**{'val_loss': avg_meters['loss'].avg})
+                for i in range(imgs.shape[0]):
+                    #---------------------------- for norms
+                    weight_norms,gradient_norms = weight_norm(net,args) #collect weight norm for final layer
+                    for clazz in range(args.num_classes):
+                        log['weight_norm_{}'.format(clazz)].append(weight_norms[clazz])
+                        log['gradient_norm_{}'.format(clazz)].append(gradient_norms[clazz])
+                    #----------------------------for iou
+                    s_true_mask =  true_masks[i].cpu().detach().numpy()
+                    s_pred = mask_pred[i].cpu().detach().numpy()
+                    img = imgs[i].cpu().detach().numpy()
+                    s_pred = np.argmax(s_pred,axis=0)
+                    if True:
+                        datamaker.showrevert_cp2file(img,s_true_mask,s_pred,args.experiment,'{}_{}th'.format(batch_count,epoch))
+                        show = True
+                    miou,statisic= mIOU(s_pred,s_true_mask,net.n_classes)
+                    for key in statisic:
+                        iou = (statisic[key]['tp']*1.0) / (statisic[key]['tp']+statisic[key]['fp']+statisic[key]['fn']+(-1e-5))
+                        log['iou_{}'.format(key)].append(iou)
+                    #--------------------------for logits
+                    softmax_logits = softmax_helper(mask_pred[i].unsqueeze(0))
+                    norms = logit_norms(mask_pred[i],args)
+                    for clazz in range(args.num_classes):
+                        log['logit_norm_{}'.format(clazz)].append(norms[clazz])
+                else:
+                    pass #not implment here
+                    # pred = torch.sigmoid(mask_pred)
+                    # pred_int = (pred > 0.5).int()
+                    # pred = (pred > 0.5).float()
+                    # if args.weight_loss:
+                    #     loss = criterion(mask_pred, true_masks,epoch,weight)
+                    # else:
+                    #     loss = criterion(mask_pred, true_masks,epoch)
+                    # avg_meters['loss'].update(loss.cpu().item())
+                    # # for i in range(imgs.shape[0]):
+                    # for i in range(imgs.shape[0]):
+                    #     s_true_mask =  true_masks[i].cpu().detach().numpy()
+                    #     s_pred = pred_int[i].cpu().detach().numpy()
+                    #     if not show:# once for a epoch
+                    #         if i==0:
+                    #             vis.visualize_pred_to_file("./result/{}/epoch:{}_{}_{}.png".format(args.experiment,epoch,batch_count,i),imgs[i].cpu().detach().numpy(), s_true_mask, s_pred , title1="Original", title2="True", title3="Pred[0]")
+                    #             stack = 'val_loss:{},iou:{},pixel_error:{},rand_error:{},dice_coeff:{}'.format(loss.cpu().item(),pixel_error(s_true_mask,s_pred),IOU(s_true_mask,s_pred),rand_error(s_true_mask,s_pred),dice_coeff(pred, true_masks).item())
+                    #             with open("./result/{}/epoch:{}_{}_{}.txt".format(args.experiment,epoch,batch_count,i),'w') as f:    #设置文件对象
+                    #                 f.write(stack)
+                    #         show = True
+                    #     avg_meters['pixel_error'].update(pixel_error(s_true_mask,s_pred))
+                    #     avg_meters['iou'].update(IOU(s_true_mask,s_pred))
+                    #     avg_meters['rand_error'].update(rand_error(s_true_mask,s_pred))
+                    #     avg_meters['dice_coeff'].update(dice_coeff(pred, true_masks).item())
+                    #     pbar.set_postfix(**{'val_loss': avg_meters['loss'].avg,'iou': avg_meters['iou'].avg,'pixel_error': avg_meters['pixel_error'].avg,'rand_error': avg_meters['rand_error'].avg})
+            pbar.update(imgs.shape[0])
+            batch_count+=1
+        pbar.close()
+        pd.DataFrame(log).to_csv('./result/{}_model_check.csv'.format(args.experiment),index=None)
