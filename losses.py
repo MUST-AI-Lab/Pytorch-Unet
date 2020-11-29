@@ -12,9 +12,12 @@ try:
 except ImportError:
     pass
 
-__all__ = ['BCEDiceLoss', 'LovaszHingeLoss','WeightBCELoss','WeightBCEDiceLoss','FocalLoss','MultiFocalLoss','SoftDiceLossV2','WeightCrossEntropyLoss',
-'WeightCrossEntropyLossV2','DiceLossV3','ASLLoss','ASLLossOrigin','GDL','EqualizationLoss','FilterLoss','LogitDivCELoss','LogitAddCELoss','FilterWCELoss',
-"FilterFocalLoss","MultiFocalLossV3",'EqualizationLossV2','FilterFocalLossV2','FilterCELossV2','FilterCELoss','MultiFocalLossV4']
+__all__ = ['FocalLoss','WeightBCEDiceLoss','WeightBCELoss','BCEDiceLoss','LovaszHingeLoss'
+                    'SoftDiceLossV2','DiceLossV3','ASLLoss','ASLLossOrigin','GDL',
+                    'MultiFocalLoss','MultiFocalLossV3','MultiFocalLossV4','WeightCrossEntropyLoss','WeightCrossEntropyLossV2',
+                    'LogitDivCELoss','LogitDivCELoss',
+                    'FilterFocalLoss','FilterFocalLoss_Float','FilterWFocalLoss_Float','FilterCELoss','FilterCELoss_Float','FilterWCELoss','FilterWCELoss_Float','FilterLoss',
+                    'EHCELoss','EHWCELoss','EHCELoss_Float','EHWCELoss_Float','EHFocalLoss','EHWFocalLoss','EHFocalLoss_Float','EHWFocalLoss_Float']
 
 # <--------------------------- BINARY LOSSES --------------------------->
 # ================================================
@@ -649,7 +652,7 @@ class  FilterFocalLoss(nn.Module):
         # distribution[B,H,W]
         return torch.le(distribution,tail_radio).type(torch.FloatTensor)
 
-class  FilterFocalLossV2(nn.Module):
+class  FilterFocalLoss_Float(nn.Module):
     def __init__(self, args,ignore_index=255):
         super().__init__()
         self.args = args
@@ -691,6 +694,50 @@ class  FilterFocalLossV2(nn.Module):
         # distribution[B,H,W]
         return torch.le(distribution,tail_radio).type(torch.FloatTensor)
 
+class  FilterWFocalLoss_Float(nn.Module):
+    def __init__(self, args,ignore_index=255):
+        super().__init__()
+        self.args = args
+        self.reduce=True
+        self.ignore_index = ignore_index
+        self.focal = MultiFocalLossInner(args,reduce=False)
+
+    def get_tail_radio(self,epoch):
+        if epoch <3:
+            return 0.02
+        elif epoch<6:
+            return 0.05
+        elif epoch<9:
+            return 0.1
+        elif epoch<12:
+            return 0.17
+        elif epoch<15:
+            return 0.26
+        elif epoch<18:
+            return 0.29
+        else:
+            return 1.0
+
+    def forward(self, preds, labels,epoch,weight=None):
+        if not self.args.loss_reduce:
+            raise NotImplementedError("self.args.loss_reduce  False=not suport by this Loss ")
+        distribution = weight
+        if distribution is not None:
+            baseline_weight = 1 / (self.args.num_classes) * (1/(weight+2e-5))
+            _filter = self.t_lambda(distribution,self.get_tail_radio(epoch))
+            if preds.device.type == "cuda":
+                _filter = _filter.cuda(labels.device.index)
+            loss = self.focal(preds, labels,epoch)*baseline_weight
+            loss = loss *_filter
+        else:
+            loss = self.focal(preds, labels,epoch)
+        return loss.mean()
+
+    def t_lambda(self,distribution,tail_radio=0.1):
+        # distribution[B,H,W]
+        return torch.le(distribution,tail_radio).type(torch.FloatTensor)
+
+
 class  FilterCELoss(nn.Module):
     def __init__(self, args,ignore_index=255):
         super().__init__()
@@ -717,7 +764,7 @@ class  FilterCELoss(nn.Module):
         # distribution[B,H,W]
         return torch.le(distribution,tail_radio).type(torch.FloatTensor)
 
-class  FilterCELossV2(nn.Module):
+class  FilterCELoss_Float(nn.Module):
     def __init__(self, args,ignore_index=255):
         super().__init__()
         self.args = args
@@ -786,6 +833,48 @@ class  FilterWCELoss(nn.Module):
         # distribution[B,H,W]
         return torch.le(distribution,tail_radio).type(torch.FloatTensor)
 
+class  FilterWCELoss_Float(nn.Module):
+    def __init__(self, args,ignore_index=255):
+        super().__init__()
+        self.args = args
+        self.reduce=True
+        self.ignore_index = ignore_index
+        self.ce_fn = nn.CrossEntropyLoss( ignore_index=self.ignore_index,reduce=False)
+
+    def get_tail_radio(self,epoch):
+        if epoch <3:
+            return 0.02
+        elif epoch<6:
+            return 0.05
+        elif epoch<9:
+            return 0.1
+        elif epoch<12:
+            return 0.17
+        elif epoch<15:
+            return 0.26
+        elif epoch<18:
+            return 0.29
+        else:
+            return 1.0
+    def forward(self, preds, labels,epoch,weight=None):
+        if not self.args.loss_reduce:
+            raise NotImplementedError("self.args.loss_reduce  False=not suport by this Loss ")
+        distribution = weight
+        if distribution is not None:
+            baseline_weight = 1 / (self.args.num_classes) * (1/(weight+2e-5))
+            ce_filter = self.t_lambda(distribution,self.get_tail_radio(epoch))
+            if preds.device.type == "cuda":
+                ce_filter = ce_filter.cuda(labels.device.index)
+            loss = self.ce_fn(preds, labels)*baseline_weight
+            loss = loss *ce_filter
+        else:
+            loss = self.ce_fn(preds, labels)
+        return loss.mean()
+
+    def t_lambda(self,distribution,tail_radio=0.1):
+        # distribution[B,H,W]
+        return torch.le(distribution,tail_radio).type(torch.FloatTensor)
+
 class  FilterLoss(nn.Module):
     def __init__(self, args,ignore_index=255):
         super().__init__()
@@ -837,7 +926,8 @@ class  FilterLoss(nn.Module):
 
 #this loss functio must have weight 
 # see dataset weight difintion, call this loss function must have both two condition
-class EqualizationLoss(nn.Module):
+#EH=enhance onehot
+class EHCELoss(nn.Module):
     def __init__(self, args,ignore_index=255):
         super().__init__()
         self.args = args
@@ -886,8 +976,58 @@ class EqualizationLoss(nn.Module):
     def t_lambda(self,distribution,tail_radio=0.1):
         # distribution[B,H,W]
         return torch.le(distribution,tail_radio).type(torch.FloatTensor)
+class EHWCELoss(nn.Module):
+    def __init__(self, args,ignore_index=255):
+        super().__init__()
+        self.args = args
+        self.reduce=True
+        self.ignore_index = ignore_index
+        self.ce_fn = nn.CrossEntropyLoss( ignore_index=self.ignore_index,reduce=False)
 
-class EqualizationLossV2(nn.Module):
+    def forward(self, preds, labels,epoch,weight=None):
+        if not self.args.loss_reduce:
+            raise NotImplementedError("self.args.loss_reduce  False=not suport by this Loss ")
+        shp_preds = preds.shape
+        shp_labels = labels.shape
+        if len(shp_preds) != len(shp_labels):
+            labels = labels.view((shp_labels[0], 1, *shp_labels[1:]))
+        onehot = torch.zeros(shp_preds)
+        if preds.device.type == "cuda":
+            onehot = onehot.cuda(labels.device.index)
+        onehot.scatter_(1, labels, 1)
+
+        shp_preds = preds.shape
+        shp_labels = labels.shape
+        if len(shp_preds) == len(shp_labels):
+            labels = labels.squeeze(dim=1)
+
+        distribution = weight
+        baseline = self.weight2baseline(weight)
+        if distribution is not None:
+            t_lambda = self.t_lambda(distribution,self.args.tail_radio)
+            shp_t = t_lambda.shape
+            t_lambda = t_lambda.view((shp_t[0], 1, *shp_t[1:]))
+            if preds.device.type == "cuda":
+                t_lambda = t_lambda.cuda(labels.device.index)
+
+            eql_w =1 - (1-t_lambda) * (1-onehot)
+            loss =  self.ce_fn(preds,labels)
+            loss = loss * eql_w * baseline
+            return loss.mean()
+        else:
+            loss =  self.ce_fn(preds,labels)
+            return loss.mean()
+
+    def weight2baseline(self,weight):
+        K = self.args.num_classes
+        beasline_weight = 1/K *(1/(weight+2e-5))
+        return beasline_weight
+
+    def t_lambda(self,distribution,tail_radio=0.1):
+        # distribution[B,H,W]
+        return torch.le(distribution,tail_radio).type(torch.FloatTensor)
+
+class EHCELoss_Float(nn.Module):
     def __init__(self, args,ignore_index=255):
         super().__init__()
         self.args = args
@@ -946,6 +1086,289 @@ class EqualizationLossV2(nn.Module):
     def t_lambda(self,distribution,tail_radio=0.1):
         # distribution[B,H,W]
         return torch.le(distribution,tail_radio).type(torch.FloatTensor)
+class EHWCELoss_Float(nn.Module):
+    def __init__(self, args,ignore_index=255):
+        super().__init__()
+        self.args = args
+        self.reduce=True
+        self.ignore_index = ignore_index
+        self.ce_fn = nn.CrossEntropyLoss( ignore_index=self.ignore_index,reduce=False)
+
+    def get_tail_radio(self,epoch):
+        if epoch <13:
+            return 0.05
+        elif epoch<18:
+            return 0.1
+        elif epoch<23:
+            return 0.17
+        else:
+            return 1.0
+
+    def forward(self, preds, labels,epoch,weight=None):
+        if not self.args.loss_reduce:
+            raise NotImplementedError("self.args.loss_reduce  False=not suport by this Loss ")
+        shp_preds = preds.shape
+        shp_labels = labels.shape
+        if len(shp_preds) != len(shp_labels):
+            labels = labels.view((shp_labels[0], 1, *shp_labels[1:]))
+        onehot = torch.zeros(shp_preds)
+        if preds.device.type == "cuda":
+            onehot = onehot.cuda(labels.device.index)
+        onehot.scatter_(1, labels, 1)
+
+        shp_preds = preds.shape
+        shp_labels = labels.shape
+        if len(shp_preds) == len(shp_labels):
+            labels = labels.squeeze(dim=1)
+
+        distribution = weight
+        if distribution is not None:
+            baseline = self.weight2baseline(weight)
+            t_lambda = self.t_lambda(distribution,self.get_tail_radio(epoch))
+            shp_t = t_lambda.shape
+            t_lambda = t_lambda.view((shp_t[0], 1, *shp_t[1:]))
+            if preds.device.type == "cuda":
+                t_lambda = t_lambda.cuda(labels.device.index)
+
+            eql_w =1 - (1-t_lambda) * (1-onehot)
+            loss =  self.ce_fn(preds,labels)
+            loss = loss * eql_w*baseline
+            return loss.mean()
+        else:
+            loss =  self.ce_fn(preds,labels)
+            return loss.mean()
+
+    def weight2baseline(self,weight):
+        K = self.args.num_classes
+        beasline_weight = 1/K * (1/(weight+2e-5))
+        return beasline_weight
+
+    def t_lambda(self,distribution,tail_radio=0.1):
+        # distribution[B,H,W]
+        return torch.le(distribution,tail_radio).type(torch.FloatTensor)
+
+class EHFocalLoss(nn.Module):
+    def __init__(self, args,ignore_index=255):
+        super().__init__()
+        self.args = args
+        self.reduce=True
+        self.ignore_index = ignore_index
+        self.ce_fn = MultiFocalLossInner(args,reduce=False)
+
+    def forward(self, preds, labels,epoch,weight=None):
+        if not self.args.loss_reduce:
+            raise NotImplementedError("self.args.loss_reduce  False=not suport by this Loss ")
+        shp_preds = preds.shape
+        shp_labels = labels.shape
+        if len(shp_preds) != len(shp_labels):
+            labels = labels.view((shp_labels[0], 1, *shp_labels[1:]))
+        onehot = torch.zeros(shp_preds)
+        if preds.device.type == "cuda":
+            onehot = onehot.cuda(labels.device.index)
+        onehot.scatter_(1, labels, 1)
+
+        shp_preds = preds.shape
+        shp_labels = labels.shape
+        if len(shp_preds) == len(shp_labels):
+            labels = labels.squeeze(dim=1)
+
+        distribution = weight
+        if distribution is not None:
+            t_lambda = self.t_lambda(distribution,self.args.tail_radio)
+            shp_t = t_lambda.shape
+            t_lambda = t_lambda.view((shp_t[0], 1, *shp_t[1:]))
+            if preds.device.type == "cuda":
+                t_lambda = t_lambda.cuda(labels.device.index)
+
+            eql_w =1 - (1-t_lambda) * (1-onehot)
+            loss =  self.ce_fn(preds,labels,epoch)
+            loss = loss * eql_w
+            return loss.mean()
+        else:
+            loss =  self.ce_fn(preds,labels,epoch)
+            return loss.mean()
+
+    def weight2baseline(self,weight):
+        K = self.args.num_classes
+        beasline_weight = 1/(K )*(1/(weight+2e-5))
+        return beasline_weight
+
+    def t_lambda(self,distribution,tail_radio=0.1):
+        # distribution[B,H,W]
+        return torch.le(distribution,tail_radio).type(torch.FloatTensor)
+class EHWFocalLoss(nn.Module):
+    def __init__(self, args,ignore_index=255):
+        super().__init__()
+        self.args = args
+        self.reduce=True
+        self.ignore_index = ignore_index
+        self.ce_fn = MultiFocalLossInner(args,reduce=False)
+
+    def forward(self, preds, labels,epoch,weight=None):
+        if not self.args.loss_reduce:
+            raise NotImplementedError("self.args.loss_reduce  False=not suport by this Loss ")
+        shp_preds = preds.shape
+        shp_labels = labels.shape
+        if len(shp_preds) != len(shp_labels):
+            labels = labels.view((shp_labels[0], 1, *shp_labels[1:]))
+        onehot = torch.zeros(shp_preds)
+        if preds.device.type == "cuda":
+            onehot = onehot.cuda(labels.device.index)
+        onehot.scatter_(1, labels, 1)
+
+        shp_preds = preds.shape
+        shp_labels = labels.shape
+        if len(shp_preds) == len(shp_labels):
+            labels = labels.squeeze(dim=1)
+
+        distribution = weight
+        if distribution is not None:
+            baseline = self.weight2baseline(weight)
+            t_lambda = self.t_lambda(distribution,self.args.tail_radio)
+            shp_t = t_lambda.shape
+            t_lambda = t_lambda.view((shp_t[0], 1, *shp_t[1:]))
+            if preds.device.type == "cuda":
+                t_lambda = t_lambda.cuda(labels.device.index)
+
+            eql_w =1 - (1-t_lambda) * (1-onehot)
+            loss =  self.ce_fn(preds,labels,epoch)
+            loss = loss * eql_w * baseline
+            return loss.mean()
+        else:
+            loss =  self.ce_fn(preds,labels,epoch)
+            return loss.mean()
+
+    def weight2baseline(self,weight):
+        K = self.args.num_classes
+        beasline_weight = 1/K *(1/(weight+2e-5))
+        return beasline_weight
+
+    def t_lambda(self,distribution,tail_radio=0.1):
+        # distribution[B,H,W]
+        return torch.le(distribution,tail_radio).type(torch.FloatTensor)
+
+class EHFocalLoss_Float(nn.Module):
+    def __init__(self, args,ignore_index=255):
+        super().__init__()
+        self.args = args
+        self.reduce=True
+        self.ignore_index = ignore_index
+        self.ce_fn = MultiFocalLossInner(args,reduce=False)
+
+    def get_tail_radio(self,epoch):
+        if epoch <13:
+            return 0.05
+        elif epoch<18:
+            return 0.1
+        elif epoch<23:
+            return 0.17
+        else:
+            return 1.0
+
+    def forward(self, preds, labels,epoch,weight=None):
+        if not self.args.loss_reduce:
+            raise NotImplementedError("self.args.loss_reduce  False=not suport by this Loss ")
+        shp_preds = preds.shape
+        shp_labels = labels.shape
+        if len(shp_preds) != len(shp_labels):
+            labels = labels.view((shp_labels[0], 1, *shp_labels[1:]))
+        onehot = torch.zeros(shp_preds)
+        if preds.device.type == "cuda":
+            onehot = onehot.cuda(labels.device.index)
+        onehot.scatter_(1, labels, 1)
+
+        shp_preds = preds.shape
+        shp_labels = labels.shape
+        if len(shp_preds) == len(shp_labels):
+            labels = labels.squeeze(dim=1)
+
+        distribution = weight
+        if distribution is not None:
+            t_lambda = self.t_lambda(distribution,self.get_tail_radio(epoch))
+            shp_t = t_lambda.shape
+            t_lambda = t_lambda.view((shp_t[0], 1, *shp_t[1:]))
+            if preds.device.type == "cuda":
+                t_lambda = t_lambda.cuda(labels.device.index)
+
+            eql_w =1 - (1-t_lambda) * (1-onehot)
+            loss =  self.ce_fn(preds,labels,epoch)
+            loss = loss * eql_w
+            return loss.mean()
+        else:
+            loss =  self.ce_fn(preds,labels,epoch)
+            return loss.mean()
+
+    def weight2baseline(self,weight):
+        K = self.args.num_classes
+        beasline_weight = 1/(K )*(1/(weight+2e-5))
+        return beasline_weight
+
+    def t_lambda(self,distribution,tail_radio=0.1):
+        # distribution[B,H,W]
+        return torch.le(distribution,tail_radio).type(torch.FloatTensor)
+class EHWFocalLoss_Float(nn.Module):
+    def __init__(self, args,ignore_index=255):
+        super().__init__()
+        self.args = args
+        self.reduce=True
+        self.ignore_index = ignore_index
+        self.ce_fn = MultiFocalLossInner(args,reduce=False)
+
+    def get_tail_radio(self,epoch):
+        if epoch <13:
+            return 0.05
+        elif epoch<18:
+            return 0.1
+        elif epoch<23:
+            return 0.17
+        else:
+            return 1.0
+
+    def forward(self, preds, labels,epoch,weight=None):
+        if not self.args.loss_reduce:
+            raise NotImplementedError("self.args.loss_reduce  False=not suport by this Loss ")
+        shp_preds = preds.shape
+        shp_labels = labels.shape
+        if len(shp_preds) != len(shp_labels):
+            labels = labels.view((shp_labels[0], 1, *shp_labels[1:]))
+        onehot = torch.zeros(shp_preds)
+        if preds.device.type == "cuda":
+            onehot = onehot.cuda(labels.device.index)
+        onehot.scatter_(1, labels, 1)
+
+        shp_preds = preds.shape
+        shp_labels = labels.shape
+        if len(shp_preds) == len(shp_labels):
+            labels = labels.squeeze(dim=1)
+
+        distribution = weight
+        
+        if distribution is not None:
+            baseline = self.weight2baseline(weight)
+            t_lambda = self.t_lambda(distribution,self.get_tail_radio(epoch))
+            shp_t = t_lambda.shape
+            t_lambda = t_lambda.view((shp_t[0], 1, *shp_t[1:]))
+            if preds.device.type == "cuda":
+                t_lambda = t_lambda.cuda(labels.device.index)
+
+            eql_w =1 - (1-t_lambda) * (1-onehot)
+            loss =  self.ce_fn(preds,labels,epoch)
+            loss = loss * eql_w*baseline
+            return loss.mean()
+        else:
+            loss =  self.ce_fn(preds,labels,epoch)
+            return loss.mean()
+
+    def weight2baseline(self,weight):
+        K = self.args.num_classes
+        beasline_weight = 1/K * (1/(weight+2e-5))
+        return beasline_weight
+
+    def t_lambda(self,distribution,tail_radio=0.1):
+        # distribution[B,H,W]
+        return torch.le(distribution,tail_radio).type(torch.FloatTensor)
+
+
 
 def get_tp_fp_fn_tn(net_output, gt, axes=None, mask=None, square=False):
     """

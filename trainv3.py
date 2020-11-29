@@ -77,17 +77,17 @@ def get_args():
                         help='number of classes')
 
     # loss
-    parser.add_argument('--loss', default='WeightCrossEntropyLoss',
+    parser.add_argument('--loss', default='EHWFocalLoss_Float',
                         choices=LOSS_NAMES,
                         help='loss: ' +
                         ' | '.join(LOSS_NAMES) +
                         ' (default: CrossEntropyLoss)')
     parser.add_argument('--weight_loss', default='true', type=str2bool)
     parser.add_argument('--weight_bias', type=float, default=1e-11)
-    parser.add_argument('--weight_type', default='single_baseline_weight')
+    parser.add_argument('--weight_type', default='batch_distribute_weight')
     # hyper parameter for FilterLoss
     parser.add_argument('--tail_radio', type=float, default=1.0)
-    parser.add_argument('--loss_reduce', default=False, type=str2bool)
+    parser.add_argument('--loss_reduce', default=True, type=str2bool)
 
     # dataset
     parser.add_argument('--dataset', metavar='DATASET', default='Cam2007DatasetV2',
