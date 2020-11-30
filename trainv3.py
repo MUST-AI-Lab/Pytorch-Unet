@@ -52,7 +52,7 @@ def get_args():
     parser = argparse.ArgumentParser(description='Train the UNet on images and target masks',
                                      formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument('--experiment', default='default')
-    parser.add_argument('-e', '--epochs', metavar='E', type=int, default=5,
+    parser.add_argument('-e', '--epochs', metavar='E', type=int, default=10,
                         help='Number of epochs', dest='epochs')
     parser.add_argument('-b', '--batch-size', metavar='B', type=int, nargs='?', default=1,
                         help='Batch size', dest='batchsize')
@@ -77,7 +77,7 @@ def get_args():
                         help='number of classes')
 
     # loss
-    parser.add_argument('--loss', default='EHWFocalLoss_Float',
+    parser.add_argument('--loss', default='EqualizationLossV2',
                         choices=LOSS_NAMES,
                         help='loss: ' +
                         ' | '.join(LOSS_NAMES) +
@@ -86,7 +86,7 @@ def get_args():
     parser.add_argument('--weight_bias', type=float, default=1e-11)
     parser.add_argument('--weight_type', default='batch_distribute_weight')
     # hyper parameter for FilterLoss
-    parser.add_argument('--tail_radio', type=float, default=1.0)
+    parser.add_argument('--tail_radio', type=float, default=0.05)
     parser.add_argument('--loss_reduce', default=True, type=str2bool)
 
     # dataset
