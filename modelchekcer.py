@@ -427,4 +427,4 @@ if __name__ == '__main__':
             pbar.update(imgs.shape[0])
             batch_count+=1
         pbar.close()
-        pd.DataFrame(log).to_csv('./result/{}_model_check.csv'.format(args.experiment),index=None)
+        pd.DataFrame(log).to_csv('./result/{}.csv'.format(args.experiment),index=None)

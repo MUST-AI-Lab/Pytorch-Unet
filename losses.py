@@ -15,7 +15,7 @@ except ImportError:
 __all__ = ['FocalLoss','WeightBCEDiceLoss','WeightBCELoss','BCEDiceLoss','LovaszHingeLoss'
                     'SoftDiceLossV2','DiceLossV3','ASLLoss','ASLLossOrigin','GDL',
                     'MultiFocalLoss','MultiFocalLossV3','MultiFocalLossV4','WeightCrossEntropyLoss','WeightCrossEntropyLossV2',
-                    'LogitDivCELoss','LogitDivCELoss',
+                    'LogitDivCELoss','LogitAddCELoss',
                     'FilterFocalLoss','FilterFocalLoss_Float','FilterWFocalLoss_Float','FilterCELoss','FilterCELoss_Float','FilterWCELoss','FilterWCELoss_Float','FilterLoss',
                     'EHCELoss','EHWCELoss','EHCELoss_Float','EHWCELoss_Float','EHFocalLoss','EHWFocalLoss','EHFocalLoss_Float','EHWFocalLoss_Float',
                     'EqualizationLoss','EqualizationLossV2','EqualizationLoss_Float','EqualizationLossV2_Float']
@@ -1003,8 +1003,8 @@ class EHWCELoss(nn.Module):
             labels = labels.squeeze(dim=1)
 
         distribution = weight
-        baseline = self.weight2baseline(weight)
         if distribution is not None:
+            baseline = self.weight2baseline(weight)
             t_lambda = self.t_lambda(distribution,self.args.tail_radio)
             shp_t = t_lambda.shape
             t_lambda = t_lambda.view((shp_t[0], 1, *shp_t[1:]))
