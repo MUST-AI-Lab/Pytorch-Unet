@@ -18,7 +18,8 @@ __all__ = ['FocalLoss','WeightBCEDiceLoss','WeightBCELoss','BCEDiceLoss','Lovasz
                     'LogitDivCELoss','LogitAddCELoss',
                     'FilterFocalLoss','FilterFocalLoss_Float','FilterWFocalLoss_Float','FilterCELoss','FilterCELoss_Float','FilterWCELoss','FilterWCELoss_Float','FilterLoss',
                     'EHCELoss','EHWCELoss','EHCELoss_Float','EHWCELoss_Float','EHFocalLoss','EHWFocalLoss','EHFocalLoss_Float','EHWFocalLoss_Float',
-                    'EqualizationLoss','EqualizationLossV2','EqualizationLoss_Float','EqualizationLossV2_Float']
+                    'EqualizationLoss','EqualizationLossV2','EqualizationLoss_Float','EqualizationLossV2_Float','EqualizationLossV3','EqualizationLossV3_Float','EqualizationLossV4','EqualizationLossV4_Float',
+                    'ASLLoss','ASLLossOrigin']
 
 # <--------------------------- BINARY LOSSES --------------------------->
 # ================================================
@@ -1614,6 +1615,274 @@ class EqualizationLossV2_Float(nn.Module):
         # distribution[B,H,W]
         return torch.le(distribution,tail_radio).type(torch.FloatTensor)
 
+
+class EqualizationLossV3(nn.Module):
+    def __init__(self, args,ignore_index=255):
+        super().__init__()
+        self.args = args
+        self.reduce=True
+        self.ignore_index = ignore_index
+        self.gamma = 0.95
+        self.ce_fn = nn.CrossEntropyLoss( ignore_index=self.ignore_index,reduce=False)
+
+    def forward(self, preds, labels,epoch,weight=None):
+        if not self.args.loss_reduce:
+            raise NotImplementedError("self.args.loss_reduce  False=not suport by this Loss ")
+        shp_preds = preds.shape
+        shp_labels = labels.shape
+        if len(shp_preds) != len(shp_labels):
+            labels = labels.view((shp_labels[0], 1, *shp_labels[1:]))
+        onehot = torch.zeros(shp_preds)
+        if preds.device.type == "cuda":
+            onehot = onehot.cuda(labels.device.index)
+        onehot.scatter_(1, labels, 1)
+
+        shp_preds = preds.shape
+        shp_labels = labels.shape
+        if len(shp_preds) == len(shp_labels):
+            labels = labels.squeeze(dim=1)
+
+        distribution = weight
+        target=onehot
+        if distribution is not None:
+            threshold = self.t_lambda(distribution,self.args.tail_radio).unsqueeze(dim=1)
+            if preds.device.type == "cuda":
+                threshold = threshold.cuda(labels.device.index)
+
+            beta = torch.rand((shp_labels[0],1,shp_labels[2],shp_labels[3])) #[B,1,H,W]
+            beta = torch.le(beta,self.gamma).type(torch.FloatTensor)
+            if preds.device.type == "cuda":
+                beta = beta.cuda(labels.device.index)
+            widthtile_w = 1-beta * threshold * (1-target)
+
+            exp = torch.exp(preds)
+            if preds.device.type == "cuda":
+                exp = exp.cuda(labels.device.index)
+            tmp1 = exp.gather(1,labels.unsqueeze(1)).squeeze()#分子
+            if len(tmp1.shape)==2:
+                tmp1=tmp1.unsqueeze(0)
+            tmp2 = (widthtile_w*exp).sum(1)
+            softmax = tmp1/tmp2
+            loss = -torch.log(softmax)
+            return loss.mean()
+        else:
+            loss =  self.ce_fn(preds,labels)
+            return loss.mean()
+
+    def weight2baseline(self,weight):
+        K = self.args.num_classes
+        beasline_weight = 1/(K )*(1/(weight+2e-5))
+        return beasline_weight
+
+    def t_lambda(self,distribution,tail_radio=0.1):
+        # distribution[B,H,W]
+        return torch.le(distribution,tail_radio).type(torch.FloatTensor)
+
+class EqualizationLossV3_Float(nn.Module):
+    def __init__(self, args,ignore_index=255):
+        super().__init__()
+        self.args = args
+        self.reduce=True
+        self.ignore_index = ignore_index
+        self.gamma = 0.95
+        self.ce_fn = nn.CrossEntropyLoss( ignore_index=self.ignore_index,reduce=False)
+
+    def get_tail_radio(self,epoch):
+        if epoch <13:
+            return 0.05
+        elif epoch<18:
+            return 0.1
+        elif epoch<23:
+            return 0.17
+        else:
+            return 1.0
+
+    def forward(self, preds, labels,epoch,weight=None):
+        if not self.args.loss_reduce:
+            raise NotImplementedError("self.args.loss_reduce  False=not suport by this Loss ")
+        shp_preds = preds.shape
+        shp_labels = labels.shape
+        if len(shp_preds) != len(shp_labels):
+            labels = labels.view((shp_labels[0], 1, *shp_labels[1:]))
+        onehot = torch.zeros(shp_preds)
+        if preds.device.type == "cuda":
+            onehot = onehot.cuda(labels.device.index)
+        onehot.scatter_(1, labels, 1)
+
+        shp_preds = preds.shape
+        shp_labels = labels.shape
+        if len(shp_preds) == len(shp_labels):
+            labels = labels.squeeze(dim=1)
+
+        distribution = weight
+        target=onehot
+        if distribution is not None:
+            threshold = self.t_lambda(distribution,self.get_tail_radio(epoch)).unsqueeze(dim=1)
+            if preds.device.type == "cuda":
+                threshold = threshold.cuda(labels.device.index)
+
+            beta = torch.rand((shp_labels[0],1,shp_labels[2],shp_labels[3])) #[B,1,H,W]
+            beta = torch.le(beta,self.gamma).type(torch.FloatTensor)
+            if preds.device.type == "cuda":
+                beta = beta.cuda(labels.device.index)
+            widthtile_w = 1-beta * threshold * (1-target)
+
+            exp = torch.exp(preds)
+            if preds.device.type == "cuda":
+                exp = exp.cuda(labels.device.index)
+            tmp1 = exp.gather(1,labels.unsqueeze(1)).squeeze()#分子
+            if len(tmp1.shape)==2:
+                tmp1=tmp1.unsqueeze(0)
+            tmp2 = (widthtile_w*exp).sum(1)
+            softmax = tmp1/tmp2
+            loss = -torch.log(softmax)
+            return loss.mean()
+        else:
+            loss =  self.ce_fn(preds,labels)
+            return loss.mean()
+
+    def weight2baseline(self,weight):
+        K = self.args.num_classes
+        beasline_weight = 1/(K )*(1/(weight+2e-5))
+        return beasline_weight
+
+    def t_lambda(self,distribution,tail_radio=0.1):
+        # distribution[B,H,W]
+        return torch.le(distribution,tail_radio).type(torch.FloatTensor)
+
+class EqualizationLossV4(nn.Module):
+    def __init__(self, args,ignore_index=255):
+        super().__init__()
+        self.args = args
+        self.reduce=True
+        self.ignore_index = ignore_index
+        self.gamma = 0.95
+        self.ce_fn = nn.CrossEntropyLoss( ignore_index=self.ignore_index,reduce=False)
+
+    def get_tail_radio(self,epoch):
+        if epoch <13:
+            return 0.05
+        elif epoch<18:
+            return 0.1
+        elif epoch<23:
+            return 0.17
+        else:
+            return 1.0
+
+    def forward(self, preds, labels,epoch,weight=None):
+        if not self.args.loss_reduce:
+            raise NotImplementedError("self.args.loss_reduce  False=not suport by this Loss ")
+        shp_preds = preds.shape
+        shp_labels = labels.shape
+        if len(shp_preds) != len(shp_labels):
+            labels = labels.view((shp_labels[0], 1, *shp_labels[1:]))
+        onehot = torch.zeros(shp_preds)
+        if preds.device.type == "cuda":
+            onehot = onehot.cuda(labels.device.index)
+        onehot.scatter_(1, labels, 1)
+
+        shp_preds = preds.shape
+        shp_labels = labels.shape
+        if len(shp_preds) == len(shp_labels):
+            labels = labels.squeeze(dim=1)
+
+        distribution = weight
+        target=onehot
+        if distribution is not None:
+            threshold = self.t_lambda(distribution,self.get_tail_radio(epoch)).unsqueeze(dim=1)
+            if preds.device.type == "cuda":
+                threshold = threshold.cuda(labels.device.index)
+
+            beta = torch.rand((shp_labels[0],1,shp_labels[2],shp_labels[3])) #[B,1,H,W]
+            beta = torch.le(beta,self.gamma).type(torch.FloatTensor)
+            if preds.device.type == "cuda":
+                beta = beta.cuda(labels.device.index)
+            widthtile_w = 1-beta * (1-threshold) * (1-target)
+
+            exp = torch.exp(preds)
+            if preds.device.type == "cuda":
+                exp = exp.cuda(labels.device.index)
+            tmp1 = exp.gather(1,labels.unsqueeze(1)).squeeze()#分子
+            if len(tmp1.shape)==2:
+                tmp1=tmp1.unsqueeze(0)
+            tmp2 = (widthtile_w*exp).sum(1)
+            softmax = tmp1/tmp2
+            loss = -torch.log(softmax)
+            return loss.mean()
+        else:
+            loss =  self.ce_fn(preds,labels)
+            return loss.mean()
+
+    def weight2baseline(self,weight):
+        K = self.args.num_classes
+        beasline_weight = 1/(K )*(1/(weight+2e-5))
+        return beasline_weight
+
+    def t_lambda(self,distribution,tail_radio=0.1):
+        # distribution[B,H,W]
+        return torch.le(distribution,tail_radio).type(torch.FloatTensor)
+
+class EqualizationLossV4_Float(nn.Module):
+    def __init__(self, args,ignore_index=255):
+        super().__init__()
+        self.args = args
+        self.reduce=True
+        self.ignore_index = ignore_index
+        self.gamma = 0.95
+        self.ce_fn = nn.CrossEntropyLoss( ignore_index=self.ignore_index,reduce=False)
+
+    def forward(self, preds, labels,epoch,weight=None):
+        if not self.args.loss_reduce:
+            raise NotImplementedError("self.args.loss_reduce  False=not suport by this Loss ")
+        shp_preds = preds.shape
+        shp_labels = labels.shape
+        if len(shp_preds) != len(shp_labels):
+            labels = labels.view((shp_labels[0], 1, *shp_labels[1:]))
+        onehot = torch.zeros(shp_preds)
+        if preds.device.type == "cuda":
+            onehot = onehot.cuda(labels.device.index)
+        onehot.scatter_(1, labels, 1)
+
+        shp_preds = preds.shape
+        shp_labels = labels.shape
+        if len(shp_preds) == len(shp_labels):
+            labels = labels.squeeze(dim=1)
+
+        distribution = weight
+        target=onehot
+        if distribution is not None:
+            threshold = self.t_lambda(distribution,self.args.tail_radio).unsqueeze(dim=1)
+            if preds.device.type == "cuda":
+                threshold = threshold.cuda(labels.device.index)
+
+            beta = torch.rand((shp_labels[0],1,shp_labels[2],shp_labels[3])) #[B,1,H,W]
+            beta = torch.le(beta,self.gamma).type(torch.FloatTensor)
+            if preds.device.type == "cuda":
+                beta = beta.cuda(labels.device.index)
+            widthtile_w = 1-beta * (1-threshold) * (1-target)
+
+            exp = torch.exp(preds)
+            if preds.device.type == "cuda":
+                exp = exp.cuda(labels.device.index)
+            tmp1 = exp.gather(1,labels.unsqueeze(1)).squeeze()#分子
+            if len(tmp1.shape)==2:
+                tmp1=tmp1.unsqueeze(0)
+            tmp2 = (widthtile_w*exp).sum(1)
+            softmax = tmp1/tmp2
+            loss = -torch.log(softmax)
+            return loss.mean()
+        else:
+            loss =  self.ce_fn(preds,labels)
+            return loss.mean()
+
+    def weight2baseline(self,weight):
+        K = self.args.num_classes
+        beasline_weight = 1/(K )*(1/(weight+2e-5))
+        return beasline_weight
+
+    def t_lambda(self,distribution,tail_radio=0.1):
+        # distribution[B,H,W]
+        return torch.le(distribution,tail_radio).type(torch.FloatTensor)
 
 def get_tp_fp_fn_tn(net_output, gt, axes=None, mask=None, square=False):
     """
