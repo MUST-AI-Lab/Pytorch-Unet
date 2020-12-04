@@ -60,12 +60,12 @@ def get_args():
                         help='Batch size', dest='accumulation_step')
     parser.add_argument('--seed', type=int, default=45,
                         help='a seed  for initial val', dest='seed')
-    parser.add_argument('--device', default='cuda',
+    parser.add_argument('--device', default='cpu',
                         help='choose device', dest='device')
     parser.add_argument('--device_id', type=int, default=0,
                         help='a number for choose device', dest='device_id')
     # model
-    parser.add_argument('--arch', '-a', metavar='ARCH', default='UNetTDEv2',
+    parser.add_argument('--arch', '-a', metavar='ARCH', default='FCNNhub',
                         choices=ARCH_NAMES,
                         help='model architecture: ' +
                         ' | '.join(ARCH_NAMES) +
@@ -520,111 +520,5 @@ if __name__ == '__main__':
     log = OrderedDict()
     writer = SummaryWriter(comment=f'_ex.{args.experiment}_{args.optimizer}_LR_{args.lr}_BS_{args.batchsize}_model_{args.arch}')
     savepoint=savepoints.__dict__[args.savepoint](args)
-    try:
-        rounds = range(start_epoch,args.epochs)
-        for epoch in rounds:
-            # train
-            train_log = train_net(net=net,device=device,train_loader=train_loader,epoch=epoch,args=args)
-            #validate
-            val_log = eval_net(net=net,device=device,val_loader=val_loader,epoch=epoch,args=args)
-
-            if scheduler is not None and args.scheduler == 'ReduceLROnPlateau':
-                scheduler.step(val_log['loss'])
-            else:
-                scheduler.step()
-
-            if 'epoch' not in log:
-                log['epoch'] = []
-            log['epoch'].append(epoch+1)
-
-            #record for tensorboard
-            for m_key in train_log:
-                scale = '{}/train'.format(m_key)
-                writer.add_scalar(scale,train_log[m_key], (epoch+1))
-                #for single file in csv
-                if '{}_{}'.format('train',m_key) not in log:
-                    log['{}_{}'.format('train',m_key)]=[]
-                log['{}_{}'.format('train',m_key)].append(train_log[m_key])
-
-            for tag, value in net.named_parameters():
-                tag = tag.replace('.', '/')
-                writer.add_histogram('weights/' + tag, value.data.cpu().numpy(), (epoch+1))
-                writer.add_histogram('grads/' + tag, value.grad.data.cpu().numpy(), (epoch+1))
-            logging.info('==================================================>')
-            if net.n_classes > 1:
-                for m_key in val_log:
-                    scale = '{}/test'.format(m_key)
-                    logging.info('{} : {}'.format(m_key,val_log[m_key]))
-                    writer.add_scalar(scale,val_log[m_key], (epoch+1))
-                    #for single file in csv
-                    if '{}_{}'.format('val',m_key) not in log:
-                        log['{}_{}'.format('val',m_key)]=[]
-                    log['{}_{}'.format('val',m_key)].append(val_log[m_key])
-            else:
-                for m_key in val_log:
-                    scale = '{}/test'.format(m_key)
-                    logging.info('{} : {}'.format(m_key,val_log[m_key]))
-                    writer.add_scalar(scale,val_log[m_key], (epoch+1))
-                    #for single file in csv
-                    if '{}_{}'.format('val',m_key) not in log:
-                        log['{}_{}'.format('val',m_key)]=[]
-                    log['{}_{}'.format('val',m_key)].append(val_log[m_key])
-            logging.info('==================================================>\n')
-            writer.add_scalar('learning_rate', optimizer.param_groups[0]['lr'], (epoch+1))
-
-            #force to save check point at last epoch
-            if args.force_save_last and epoch == args.epochs-1:
-                state = {'args':args,'net':net.state_dict(), 'optimizer':optimizer.state_dict(), 'epoch':epoch}
-                torch.save(state,args.dir_checkpoint + f'CP_ex.{args.experiment}_epoch{epoch + 1}_{args.arch}_{args.dataset}.pth')
-                logging.info(f'Checkpoint {epoch + 1} saved !')
-            # save check point by condition
-            if args.save_check_point:
-                if args.save_mode == 'by_best':
-                    if savepoint.is_new_best(val_log=val_log):
-                        try:
-                            os.mkdir(args.dir_checkpoint)
-                            logging.info('Created checkpoint directory')
-                        except OSError:
-                            pass
-                        state = {'args':args,'net':net.state_dict(), 'optimizer':optimizer.state_dict(), 'epoch':epoch}
-                        torch.save(state,args.dir_checkpoint + f'CP_ex.{args.experiment}_epoch{epoch + 1}_{args.arch}_{args.dataset}.pth')
-                        logging.info(f'Checkpoint {epoch + 1} saved !')
-                        # for csv
-                        if 'is_best' not in log:
-                            log['is_best'] = []
-                        log['is_best'] .append(1)
-                    else:
-                        if 'is_best' not in log:
-                            log['is_best'] = []
-                        log['is_best'] .append(0)
-                else:
-                    try:
-                        os.mkdir(args.dir_checkpoint)
-                        logging.info('Created checkpoint directory')
-                    except OSError:
-                        pass
-                    state = {'args':args,'net':net.state_dict(), 'optimizer':optimizer.state_dict(), 'epoch':epoch}
-                    torch.save(state,args.dir_checkpoint + f'CP_ex.{args.experiment}_epoch{epoch + 1}_{args.arch}_{args.dataset}.pth')
-                    logging.info(f'Checkpoint {epoch + 1} saved !')
-
-        # saving initial weight norm info to final log files
-        init_log = OrderedDict()
-        for m_key in init_norms:
-            #for single file in csv
-            if '{}_{}'.format('train',m_key) not in init_log:
-                init_log['{}_{}'.format('train',m_key)]=[]
-            init_log['{}_{}'.format('train',m_key)].append(init_norms[m_key])
-        #for csv
-        pd.DataFrame(init_log).to_csv('./result/{}_init.csv'.format(args.experiment),index=None)
-        pd.DataFrame(log).to_csv('./result/{}.csv'.format(args.experiment),index=None)
-        writer.close()
-    except KeyboardInterrupt:
-        if args.save_check_point:
-            state = {'args':args,'net':net.state_dict(), 'optimizer':optimizer.state_dict(), 'epoch':epoch}
-            torch.save(state, args.dir_checkpoint+f'INTERRUPTED_ex.{args.experiment}_epoch{epoch + 1}_{args.arch}_{args.dataset}.pth')
-            logging.info('Saved interrupt in {} epoch'.format(epoch))
-        writer.close()
-        try:
-            sys.exit(0)
-        except SystemExit:
-            os._exit(0)
+    val_log = eval_net(net=net,device=device,val_loader=val_loader,epoch=29,args=args)
+    print(val_log)

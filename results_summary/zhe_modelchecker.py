@@ -3,10 +3,10 @@ import matplotlib.pyplot as plt
 import pandas as pd
 
 
-experiment='logit_add_model_check'
+experiment='ce_tde_baseline'
 filename="./result/{}.csv".format(experiment)
-lossname ='EQloss'
-pix="EQloss"
+experiment ='CE  Loss with IW and TDE'
+pix="CE_IW_TDE"
 epochs = 30
 items = 10
 
@@ -42,10 +42,10 @@ for item in range(items):
     ax1.set_ylabel('norms and iou')
     ax2 = ax1.twinx()  # this is the important function
 
-    l1 = ax1.plot(categories,weight_norms,label='weight norm')
-    l2 = ax1.plot(categories,gradient_norms,label='gradient norm')
-    l3 = ax1.plot(categories,iou,label='iou')
-    l4 = ax2.plot(categories,logit,'r-',label='logit norm')
+    l1 = ax1.plot(categories,weight_norms,'b*-',label='weight norm')
+    l2 = ax1.plot(categories,gradient_norms,'-.',label='gradient norm')
+    l3 = ax1.plot(categories,iou,'co-',label='iou')
+    l4 = ax2.plot(categories,logit,'r+-',label='logit norm')
 
     fig.legend()
     ax2.set_ylabel('logits norm')
@@ -57,7 +57,7 @@ for item in range(items):
         tick.set_rotation(270)
 
 
-    plt.title('{}th sample final round detail of corss entropy'.format(item))
+    plt.title('{}th sample final round detail of {}'.format(item,experiment))
     plt.savefig("{}th_image.png".format(item))
     # plt.show()
     plt.cla()
@@ -79,10 +79,10 @@ ax1 = fig.add_subplot(111)
 ax1.set_ylabel('norms and iou')
 ax2 = ax1.twinx()  # this is the important function
 
-l1 = ax1.plot(categories,weight_norms,label='weight norm')
-l2 = ax1.plot(categories,gradient_norms,label='gradient norm')
-l3 = ax1.plot(categories,iou,label='iou')
-l4 = ax2.plot(categories,logit,'r-',label='logit norm')
+l1 = ax1.plot(categories,weight_norms,'b*-',label='weight norm')
+l2 = ax1.plot(categories,gradient_norms,'-.',label='gradient norm')
+l3 = ax1.plot(categories,iou,'co-',label='iou')
+l4 = ax2.plot(categories,logit,'r+-',label='logit norm')
 
 fig.legend()
 ax2.set_ylabel('logits norm')
@@ -94,7 +94,7 @@ for tick in ax2.get_xticklabels():
     tick.set_rotation(270)
 
 
-plt.title('mean final round detail of corss entropy'.format(item))
+plt.title('mean final round detail of {}'.format(experiment))
 plt.savefig("mean_image.png")
     # plt.show()11
 plt.cla()

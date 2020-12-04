@@ -1750,7 +1750,7 @@ class EqualizationLossV3_Float(nn.Module):
         # distribution[B,H,W]
         return torch.le(distribution,tail_radio).type(torch.FloatTensor)
 
-class EqualizationLossV4(nn.Module):
+class EqualizationLossV4_Float(nn.Module):
     def __init__(self, args,ignore_index=255):
         super().__init__()
         self.args = args
@@ -1822,7 +1822,7 @@ class EqualizationLossV4(nn.Module):
         # distribution[B,H,W]
         return torch.le(distribution,tail_radio).type(torch.FloatTensor)
 
-class EqualizationLossV4_Float(nn.Module):
+class EqualizationLossV4(nn.Module):
     def __init__(self, args,ignore_index=255):
         super().__init__()
         self.args = args

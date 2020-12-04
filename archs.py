@@ -1,6 +1,7 @@
 import torch
 from torch import nn
 import torch.nn.functional as F
+import numpy as np
 
 __all__ = ['UNet', 'UNetNBN' , 'NestedUNet','PyramidUNet','PyramidNestedUNet','FCNN','FCNN2','FCNNhub','UNetBnout','UNetTrainBnout','FCNNhubTDE','UNetTDEVal','UNetTDE']
 
@@ -462,7 +463,8 @@ class UNetTDE(nn.Module):
         x1_3 = self.conv1_3(torch.cat(self.ajust_padding(x1_0, self.up(x2_2)), 1))
         x0_4 = self.conv0_4(torch.cat(self.ajust_padding(x0_0, self.up(x1_3)), 1))
 
-        if False:
+        #if self.train:  #when no model checker
+        if False: #when in  model val 
             self.overline_x = self.mu * self.overline_x + x0_4.detach().cpu().numpy()
             old_weight = self.final.weight.data
             new_weight = self.final.weight.data.clone()
@@ -505,7 +507,7 @@ class UNetTDE(nn.Module):
         normed_x = x / (norm + weight)
         return normed_x
 
-class UNetTDEVal(nn.Module):
+class UNetTDEv2(nn.Module):
     def __init__(self,args):
         super().__init__()
         self.n_channels = args.input_channels
@@ -517,9 +519,7 @@ class UNetTDEVal(nn.Module):
         self.mu = 0.9
         self.norm_scale = 0.03125      # 1.0 / 32.0
         self.alpha = 3
-
-
-        nb_filter = [32, 64, 128, 256, 512]
+        self.clf=np.array([0,1,1,0,1,1,1,1,1,1,1,1,1,0,1,0,1,1,0,1,1,1,0,0,1,0,1,1,0,1,1,1])
 
         self.pool = nn.MaxPool2d(2, 2)
         self.up = nn.Upsample(scale_factor=2, mode='bilinear', align_corners=True)
@@ -557,13 +557,15 @@ class UNetTDEVal(nn.Module):
         x2_2 = self.conv2_2(torch.cat(self.ajust_padding(x2_0, self.up(x3_1)), 1))
         x1_3 = self.conv1_3(torch.cat(self.ajust_padding(x1_0, self.up(x2_2)), 1))
         x0_4 = self.conv0_4(torch.cat(self.ajust_padding(x0_0, self.up(x1_3)), 1))
+        clfs = torch.from_numpy(self.clf).type(torch.FloatTensor).to(x0_4.device).unsqueeze(-1).unsqueeze(-1).unsqueeze(-1)
 
-        if False:
+        if self.train:  #when no model checker
+        #if False: #when in  model val 
             self.overline_x = self.mu * self.overline_x + x0_4.detach().cpu().numpy()
             old_weight = self.final.weight.data
             new_weight = self.final.weight.data.clone()
             w_norm = self.causal_norm(new_weight,self.norm_scale)
-            self.final.weight.data = w_norm
+            self.final.weight.data = w_norm*clfs
             x_norm = self.l2_norm(x0_4)
 
             output = self.final(x_norm)
@@ -572,7 +574,7 @@ class UNetTDEVal(nn.Module):
             old_weight = self.final.weight.data
             new_weight = self.final.weight.data.clone()
             w_norm = self.causal_norm(new_weight,self.norm_scale)
-            self.final.weight.data = w_norm
+            self.final.weight.data = w_norm*clfs
 
             x_norm = self.l2_norm(x0_4)
 
@@ -581,7 +583,7 @@ class UNetTDEVal(nn.Module):
             output=self.final(x_norm) -  (1-cos_val)  *self.final(c_norm)
 
         #resume
-        self.final.weight.data = old_weight
+        self.final.weight.data = old_weight*clfs
         return output
 
     def get_cos_sin(self, x, y):
