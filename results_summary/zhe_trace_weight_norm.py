@@ -3,11 +3,11 @@ import matplotlib.pyplot as plt
 import pandas as pd
 
 
-experiment='EqualizationLossV4_Float'
+experiment='ce_tdev2'
 filename="./result/trace/{}.csv".format(experiment)
 init_filename = "./result/trace/{}_init.csv".format(experiment)
-lossname ='Equalization Loss Float Filter V4'
-pix="EQLv4_FLOAT"
+lossname ='CE TDE v2'
+pix="ce_tdev2"
 epochs = 30
 
 weight_norm_kind = 'train_final_norm'

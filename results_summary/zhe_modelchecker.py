@@ -3,10 +3,10 @@ import matplotlib.pyplot as plt
 import pandas as pd
 
 
-experiment='ce_tde_baseline'
+experiment='ce_tdev2'
 filename="./result/{}.csv".format(experiment)
-experiment ='CE  Loss with IW and TDE'
-pix="CE_IW_TDE"
+experiment ='TDE v2'
+pix="TDEv2"
 epochs = 30
 items = 10
 

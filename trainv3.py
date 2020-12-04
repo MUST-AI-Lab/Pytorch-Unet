@@ -65,7 +65,7 @@ def get_args():
     parser.add_argument('--device_id', type=int, default=0,
                         help='a number for choose device', dest='device_id')
     # model
-    parser.add_argument('--arch', '-a', metavar='ARCH', default='UNetTDEv2',
+    parser.add_argument('--arch', '-a', metavar='ARCH', default='UNetTDEv4',
                         choices=ARCH_NAMES,
                         help='model architecture: ' +
                         ' | '.join(ARCH_NAMES) +

@@ -4,7 +4,7 @@ import torch.nn.functional as F
 import numpy as np
 
 __all__ = ['UNet', 'UNetNBN' , 'NestedUNet','PyramidUNet','PyramidNestedUNet','FCNN','FCNN2',
-'FCNNhub','UNetBnout','UNetTrainBnout','FCNNhubTDE','UNetTDE','UNetTDEv2']
+'FCNNhub','UNetBnout','UNetTrainBnout','FCNNhubTDE','UNetTDE','UNetTDEv2','UNetTDEv3','UNetTDEv4','UNet_nbias','UNet_nbias_cls']
 
 class FCNNhubTDE(nn.Module):
     def __init__(self,args):
@@ -411,6 +411,103 @@ class UNet(nn.Module):
         output = self.final(x0_4)
         return output
 
+class UNet_nbias(nn.Module):
+    def __init__(self,args):
+        super().__init__()
+        self.n_channels = args.input_channels
+        self.n_classes = args.num_classes
+
+        nb_filter = [32, 64, 128, 256, 512]
+
+        self.pool = nn.MaxPool2d(2, 2)
+        self.up = nn.Upsample(scale_factor=2, mode='bilinear', align_corners=True)
+
+        self.conv0_0 = VGGBlock(self.n_channels, nb_filter[0], nb_filter[0],use_bias=False)
+        self.conv1_0 = VGGBlock(nb_filter[0], nb_filter[1], nb_filter[1],use_bias=False)
+        self.conv2_0 = VGGBlock(nb_filter[1], nb_filter[2], nb_filter[2],use_bias=False)
+        self.conv3_0 = VGGBlock(nb_filter[2], nb_filter[3], nb_filter[3],use_bias=False)
+        self.conv4_0 = VGGBlock(nb_filter[3], nb_filter[4], nb_filter[4],use_bias=False)
+
+        self.conv3_1 = VGGBlock(nb_filter[3]+nb_filter[4], nb_filter[3], nb_filter[3],use_bias=False)
+        self.conv2_2 = VGGBlock(nb_filter[2]+nb_filter[3], nb_filter[2], nb_filter[2],use_bias=False)
+        self.conv1_3 = VGGBlock(nb_filter[1]+nb_filter[2], nb_filter[1], nb_filter[1],use_bias=False)
+        self.conv0_4 = VGGBlock(nb_filter[0]+nb_filter[1], nb_filter[0], nb_filter[0],use_bias=False)
+
+        self.final = nn.Conv2d(nb_filter[0], self.n_classes, kernel_size=1,bias=False)
+
+
+    def ajust_padding(self,x1,x2):
+        diffY = x1.size()[2] - x2.size()[2]
+        diffX = x1.size()[3] - x2.size()[3]
+
+        x2 = F.pad(x2, [diffX // 2, diffX - diffX // 2,
+                        diffY // 2, diffY - diffY // 2])
+        return [x1,x2]
+
+    def forward(self, input):
+        x0_0 = self.conv0_0(input)
+        x1_0 = self.conv1_0(self.pool(x0_0))
+        x2_0 = self.conv2_0(self.pool(x1_0))
+        x3_0 = self.conv3_0(self.pool(x2_0))
+        x4_0 = self.conv4_0(self.pool(x3_0))
+
+        x3_1 = self.conv3_1(torch.cat(self.ajust_padding(x3_0, self.up(x4_0)), 1))
+        x2_2 = self.conv2_2(torch.cat(self.ajust_padding(x2_0, self.up(x3_1)), 1))
+        x1_3 = self.conv1_3(torch.cat(self.ajust_padding(x1_0, self.up(x2_2)), 1))
+        x0_4 = self.conv0_4(torch.cat(self.ajust_padding(x0_0, self.up(x1_3)), 1))
+
+        output = self.final(x0_4)
+        return output
+
+class UNet_nbias_cls(nn.Module):
+    def __init__(self,args):
+        super().__init__()
+        self.n_channels = args.input_channels
+        self.n_classes = args.num_classes
+        self.clf=np.array([0,1,1,0,1,1,1,1,1,1,1,1,1,0,1,0,1,1,0,1,1,1,0,0,1,0,1,1,0,1,1,1])
+        nb_filter = [32, 64, 128, 256, 512]
+
+        self.pool = nn.MaxPool2d(2, 2)
+        self.up = nn.Upsample(scale_factor=2, mode='bilinear', align_corners=True)
+
+        self.conv0_0 = VGGBlock(self.n_channels, nb_filter[0], nb_filter[0],use_bias=False)
+        self.conv1_0 = VGGBlock(nb_filter[0], nb_filter[1], nb_filter[1],use_bias=False)
+        self.conv2_0 = VGGBlock(nb_filter[1], nb_filter[2], nb_filter[2],use_bias=False)
+        self.conv3_0 = VGGBlock(nb_filter[2], nb_filter[3], nb_filter[3],use_bias=False)
+        self.conv4_0 = VGGBlock(nb_filter[3], nb_filter[4], nb_filter[4],use_bias=False)
+
+        self.conv3_1 = VGGBlock(nb_filter[3]+nb_filter[4], nb_filter[3], nb_filter[3],use_bias=False)
+        self.conv2_2 = VGGBlock(nb_filter[2]+nb_filter[3], nb_filter[2], nb_filter[2],use_bias=False)
+        self.conv1_3 = VGGBlock(nb_filter[1]+nb_filter[2], nb_filter[1], nb_filter[1],use_bias=False)
+        self.conv0_4 = VGGBlock(nb_filter[0]+nb_filter[1], nb_filter[0], nb_filter[0],use_bias=False)
+
+        self.final = nn.Conv2d(nb_filter[0], self.n_classes, kernel_size=1,bias=False)
+
+
+    def ajust_padding(self,x1,x2):
+        diffY = x1.size()[2] - x2.size()[2]
+        diffX = x1.size()[3] - x2.size()[3]
+
+        x2 = F.pad(x2, [diffX // 2, diffX - diffX // 2,
+                        diffY // 2, diffY - diffY // 2])
+        return [x1,x2]
+
+    def forward(self, input):
+        x0_0 = self.conv0_0(input)
+        x1_0 = self.conv1_0(self.pool(x0_0))
+        x2_0 = self.conv2_0(self.pool(x1_0))
+        x3_0 = self.conv3_0(self.pool(x2_0))
+        x4_0 = self.conv4_0(self.pool(x3_0))
+
+        x3_1 = self.conv3_1(torch.cat(self.ajust_padding(x3_0, self.up(x4_0)), 1))
+        x2_2 = self.conv2_2(torch.cat(self.ajust_padding(x2_0, self.up(x3_1)), 1))
+        x1_3 = self.conv1_3(torch.cat(self.ajust_padding(x1_0, self.up(x2_2)), 1))
+        x0_4 = self.conv0_4(torch.cat(self.ajust_padding(x0_0, self.up(x1_3)), 1))
+        clfs = torch.from_numpy(self.clf).type(torch.FloatTensor).to(x0_4.device).unsqueeze(-1).unsqueeze(-1).unsqueeze(-1)
+        self.final.weight.data = self.final.weight.data * clfs
+        output = self.final(x0_4)
+        return output
+
 class UNetTDE(nn.Module):
     def __init__(self,args):
         super().__init__()
@@ -582,6 +679,203 @@ class UNetTDEv2(nn.Module):
             c_norm = self.l2_norm(self.embed)
             cos_val, sin_val =self.get_cos_sin(x_norm,c_norm)
             output=self.final(x_norm) -  (1-cos_val)  *self.final(c_norm)
+
+        #resume
+        self.final.weight.data = old_weight*clfs
+        return output
+
+    def get_cos_sin(self, x, y):
+        x_norm = torch.norm(x, 2, 1, keepdim=True)
+        y_norm = torch.norm(y, 2, 1, keepdim=True)
+        cos_val = (x * y).sum(1, keepdim=True) / ((x_norm+1e-5) * (y_norm+1e-5))
+        sin_val = (1 - cos_val * cos_val).sqrt()
+        return cos_val, sin_val
+
+    def l2_norm(self, x):
+        norm= torch.norm(x, 2, 1, keepdim=True)
+        normed_x = x / (norm+1e-5)
+        return normed_x
+
+    def causal_norm(self, x, weight):
+        norm= torch.norm(x, 2, 1, keepdim=True)
+        normed_x = x / (norm + weight)
+        return normed_x
+
+class UNetTDEv3(nn.Module):
+    def __init__(self,args):
+        super().__init__()
+        self.n_channels = args.input_channels
+        self.n_classes = args.num_classes
+        nb_filter = [32, 64, 128, 256, 512]
+
+        # init moving average
+        self.overline_x = torch.zeros((args.batchsize,nb_filter[0],720,960)).numpy()
+        self.mu = 0.9
+        self.norm_scale = 0.03125      # 1.0 / 32.0
+        self.alpha = 3
+        self.clf=np.array([0,1,1,0,1,1,1,1,1,1,1,1,1,0,1,0,1,1,0,1,1,1,0,0,1,0,1,1,0,1,1,1])
+
+        self.pool = nn.MaxPool2d(2, 2)
+        self.up = nn.Upsample(scale_factor=2, mode='bilinear', align_corners=True)
+
+        self.conv0_0 = VGGBlock(self.n_channels, nb_filter[0], nb_filter[0],use_bias=False)
+        self.conv1_0 = VGGBlock(nb_filter[0], nb_filter[1], nb_filter[1],use_bias=False)
+        self.conv2_0 = VGGBlock(nb_filter[1], nb_filter[2], nb_filter[2],use_bias=False)
+        self.conv3_0 = VGGBlock(nb_filter[2], nb_filter[3], nb_filter[3],use_bias=False)
+        self.conv4_0 = VGGBlock(nb_filter[3], nb_filter[4], nb_filter[4],use_bias=False)
+
+        self.conv3_1 = VGGBlock(nb_filter[3]+nb_filter[4], nb_filter[3], nb_filter[3],use_bias=False)
+        self.conv2_2 = VGGBlock(nb_filter[2]+nb_filter[3], nb_filter[2], nb_filter[2],use_bias=False)
+        self.conv1_3 = VGGBlock(nb_filter[1]+nb_filter[2], nb_filter[1], nb_filter[1],use_bias=False)
+        self.conv0_4 = VGGBlock(nb_filter[0]+nb_filter[1], nb_filter[0], nb_filter[0],use_bias=False)
+
+        self.final = nn.Conv2d(nb_filter[0], self.n_classes, kernel_size=1,bias=False)
+
+
+    def ajust_padding(self,x1,x2):
+        diffY = x1.size()[2] - x2.size()[2]
+        diffX = x1.size()[3] - x2.size()[3]
+
+        x2 = F.pad(x2, [diffX // 2, diffX - diffX // 2,
+                        diffY // 2, diffY - diffY // 2])
+        return [x1,x2]
+
+    def forward(self, input):
+        x0_0 = self.conv0_0(input)
+        x1_0 = self.conv1_0(self.pool(x0_0))
+        x2_0 = self.conv2_0(self.pool(x1_0))
+        x3_0 = self.conv3_0(self.pool(x2_0))
+        x4_0 = self.conv4_0(self.pool(x3_0))
+
+        x3_1 = self.conv3_1(torch.cat(self.ajust_padding(x3_0, self.up(x4_0)), 1))
+        x2_2 = self.conv2_2(torch.cat(self.ajust_padding(x2_0, self.up(x3_1)), 1))
+        x1_3 = self.conv1_3(torch.cat(self.ajust_padding(x1_0, self.up(x2_2)), 1))
+        x0_4 = self.conv0_4(torch.cat(self.ajust_padding(x0_0, self.up(x1_3)), 1))
+        #clfs = torch.from_numpy(self.clf).type(torch.FloatTensor).to(x0_4.device).unsqueeze(-1).unsqueeze(-1).unsqueeze(-1)
+
+        if self.train:  #when no model checker
+        #if False: #when in  model val 
+            self.overline_x = self.mu * self.overline_x + x0_4.detach().cpu().numpy()
+            old_weight = self.final.weight.data
+            new_weight = self.final.weight.data.clone()
+            w_norm = self.causal_norm(new_weight,self.norm_scale)
+            self.final.weight.data = w_norm
+            x_norm = self.l2_norm(x0_4)
+
+            output = self.final(x_norm)
+        else:
+            self.embed = torch.from_numpy(self.overline_x).to(x0_4.device)
+            old_weight = self.final.weight.data
+            new_weight = self.final.weight.data.clone()
+            w_norm = self.causal_norm(new_weight,self.norm_scale)
+            self.final.weight.data = w_norm
+
+            x_norm = self.l2_norm(x0_4)
+
+            c_norm = self.l2_norm(self.embed)
+            cos_val, sin_val =self.get_cos_sin(x_norm,c_norm)
+            output=self.final(x_norm) -  (1-cos_val)  *self.final(c_norm)
+
+        #resume
+        self.final.weight.data = old_weight*clfs
+        return output
+
+    def get_cos_sin(self, x, y):
+        x_norm = torch.norm(x, 2, 1, keepdim=True)
+        y_norm = torch.norm(y, 2, 1, keepdim=True)
+        cos_val = (x * y).sum(1, keepdim=True) / ((x_norm+1e-5) * (y_norm+1e-5))
+        sin_val = (1 - cos_val * cos_val).sqrt()
+        return cos_val, sin_val
+
+    def l2_norm(self, x):
+        norm= torch.norm(x, 2, 1, keepdim=True)
+        normed_x = x / (norm+1e-5)
+        return normed_x
+
+    def causal_norm(self, x, weight):
+        norm= torch.norm(x, 2, 1, keepdim=True)
+        normed_x = x / (norm + weight)
+        return normed_x
+
+class UNetTDEv4(nn.Module):
+    def __init__(self,args):
+        super().__init__()
+        self.n_channels = args.input_channels
+        self.n_classes = args.num_classes
+        nb_filter = [32, 64, 128, 256, 512]
+
+        # init moving average
+        self.overline_x = torch.zeros((args.batchsize,nb_filter[0],720,960)).numpy()
+        self.mu = 0.9
+        self.norm_scale = 0.03125      # 1.0 / 32.0
+        self.alpha = 3
+        self.clf=np.array([0,1,1,0,1,1,1,1,1,1,1,1,1,0,1,0,1,1,0,1,1,1,0,0,1,0,1,1,0,1,1,1])
+
+        self.pool = nn.MaxPool2d(2, 2)
+        self.up = nn.Upsample(scale_factor=2, mode='bilinear', align_corners=True)
+
+        self.conv0_0 = VGGBlock(self.n_channels, nb_filter[0], nb_filter[0],use_bias=False)
+        self.conv1_0 = VGGBlock(nb_filter[0], nb_filter[1], nb_filter[1],use_bias=False)
+        self.conv2_0 = VGGBlock(nb_filter[1], nb_filter[2], nb_filter[2],use_bias=False)
+        self.conv3_0 = VGGBlock(nb_filter[2], nb_filter[3], nb_filter[3],use_bias=False)
+        self.conv4_0 = VGGBlock(nb_filter[3], nb_filter[4], nb_filter[4],use_bias=False)
+
+        self.conv3_1 = VGGBlock(nb_filter[3]+nb_filter[4], nb_filter[3], nb_filter[3],use_bias=False)
+        self.conv2_2 = VGGBlock(nb_filter[2]+nb_filter[3], nb_filter[2], nb_filter[2],use_bias=False)
+        self.conv1_3 = VGGBlock(nb_filter[1]+nb_filter[2], nb_filter[1], nb_filter[1],use_bias=False)
+        self.conv0_4 = VGGBlock(nb_filter[0]+nb_filter[1], nb_filter[0], nb_filter[0],use_bias=False)
+
+        self.final = nn.Conv2d(nb_filter[0], self.n_classes, kernel_size=1,bias=False)
+
+
+    def ajust_padding(self,x1,x2):
+        diffY = x1.size()[2] - x2.size()[2]
+        diffX = x1.size()[3] - x2.size()[3]
+
+        x2 = F.pad(x2, [diffX // 2, diffX - diffX // 2,
+                        diffY // 2, diffY - diffY // 2])
+        return [x1,x2]
+
+    def forward(self, input):
+        x0_0 = self.conv0_0(input)
+        x1_0 = self.conv1_0(self.pool(x0_0))
+        x2_0 = self.conv2_0(self.pool(x1_0))
+        x3_0 = self.conv3_0(self.pool(x2_0))
+        x4_0 = self.conv4_0(self.pool(x3_0))
+
+        x3_1 = self.conv3_1(torch.cat(self.ajust_padding(x3_0, self.up(x4_0)), 1))
+        x2_2 = self.conv2_2(torch.cat(self.ajust_padding(x2_0, self.up(x3_1)), 1))
+        x1_3 = self.conv1_3(torch.cat(self.ajust_padding(x1_0, self.up(x2_2)), 1))
+        x0_4 = self.conv0_4(torch.cat(self.ajust_padding(x0_0, self.up(x1_3)), 1))
+        clfs = torch.from_numpy(self.clf).type(torch.FloatTensor).to(x0_4.device).unsqueeze(-1).unsqueeze(-1).unsqueeze(-1)
+
+        if self.train:  #when no model checker
+        #if False: #when in  model val 
+            self.overline_x = self.mu * self.overline_x + x0_4.detach().cpu().numpy()
+            old_weight = self.final.weight.data
+            new_weight = self.final.weight.data.clone()
+            w_norm = self.causal_norm(new_weight,self.norm_scale)
+
+            self.final.weight.data = w_norm*clfs
+            x_norm = self.l2_norm(x0_4)
+
+            cut = (1-clfs.squeeze(-1).unsqueeze(0)) *-9999
+            output = self.final(x_norm)+ cut
+        else:
+            self.embed = torch.from_numpy(self.overline_x).to(x0_4.device)
+            old_weight = self.final.weight.data
+            new_weight = self.final.weight.data.clone()
+            w_norm = self.causal_norm(new_weight,self.norm_scale)
+            cut = (1-clfs) *-9999
+            self.final.weight.data = w_norm*clfs + cut
+
+            x_norm = self.l2_norm(x0_4)
+
+            c_norm = self.l2_norm(self.embed)
+            cos_val, sin_val =self.get_cos_sin(x_norm,c_norm)
+
+            cut = (1-clfs.squeeze(-1).unsqueeze(0)) *-9999
+            output=self.final(x_norm) -  (1-cos_val)  *self.final(c_norm)+ cut
 
         #resume
         self.final.weight.data = old_weight*clfs
