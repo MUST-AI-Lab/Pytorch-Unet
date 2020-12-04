@@ -3,7 +3,8 @@ from torch import nn
 import torch.nn.functional as F
 import numpy as np
 
-__all__ = ['UNet', 'UNetNBN' , 'NestedUNet','PyramidUNet','PyramidNestedUNet','FCNN','FCNN2','FCNNhub','UNetBnout','UNetTrainBnout','FCNNhubTDE','UNetTDEVal','UNetTDE']
+__all__ = ['UNet', 'UNetNBN' , 'NestedUNet','PyramidUNet','PyramidNestedUNet','FCNN','FCNN2',
+'FCNNhub','UNetBnout','UNetTrainBnout','FCNNhubTDE','UNetTDE','UNetTDEv2']
 
 class FCNNhubTDE(nn.Module):
     def __init__(self,args):
