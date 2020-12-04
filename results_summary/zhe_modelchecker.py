@@ -3,10 +3,10 @@ import matplotlib.pyplot as plt
 import pandas as pd
 
 
-experiment='ce_tdev2'
+experiment='ce_nbias_clsv2'
 filename="./result/{}.csv".format(experiment)
-experiment ='TDE v2'
-pix="TDEv2"
+experiment ='CE no bias clas v2'
+pix="ce_nbias_clsv2"
 epochs = 30
 items = 10
 
