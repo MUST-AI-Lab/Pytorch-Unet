@@ -126,14 +126,14 @@ class FCNNhub(nn.Module):
         return output
 
 class VGGBlock(nn.Module):
-    def __init__(self, in_channels, middle_channels, out_channels,use_bn=True):
+    def __init__(self, in_channels, middle_channels, out_channels,use_bn=True,use_bias=True):
         super().__init__()
         self.relu = nn.ReLU(inplace=True)
         self.use_bn = use_bn
-        self.conv1 = nn.Conv2d(in_channels, middle_channels, 3, padding=1)
+        self.conv1 = nn.Conv2d(in_channels, middle_channels, 3, padding=1,bias=use_bias)
         if use_bn:
             self.bn1 = nn.BatchNorm2d(middle_channels)
-        self.conv2 = nn.Conv2d(middle_channels, out_channels, 3, padding=1)
+        self.conv2 = nn.Conv2d(middle_channels, out_channels, 3, padding=1,bias=use_bias)
         if use_bn:
             self.bn2 = nn.BatchNorm2d(out_channels)
 
@@ -525,18 +525,18 @@ class UNetTDEv2(nn.Module):
         self.pool = nn.MaxPool2d(2, 2)
         self.up = nn.Upsample(scale_factor=2, mode='bilinear', align_corners=True)
 
-        self.conv0_0 = VGGBlock(self.n_channels, nb_filter[0], nb_filter[0])
-        self.conv1_0 = VGGBlock(nb_filter[0], nb_filter[1], nb_filter[1])
-        self.conv2_0 = VGGBlock(nb_filter[1], nb_filter[2], nb_filter[2])
-        self.conv3_0 = VGGBlock(nb_filter[2], nb_filter[3], nb_filter[3])
-        self.conv4_0 = VGGBlock(nb_filter[3], nb_filter[4], nb_filter[4])
+        self.conv0_0 = VGGBlock(self.n_channels, nb_filter[0], nb_filter[0],use_bias=False)
+        self.conv1_0 = VGGBlock(nb_filter[0], nb_filter[1], nb_filter[1],use_bias=False)
+        self.conv2_0 = VGGBlock(nb_filter[1], nb_filter[2], nb_filter[2],use_bias=False)
+        self.conv3_0 = VGGBlock(nb_filter[2], nb_filter[3], nb_filter[3],use_bias=False)
+        self.conv4_0 = VGGBlock(nb_filter[3], nb_filter[4], nb_filter[4],use_bias=False)
 
-        self.conv3_1 = VGGBlock(nb_filter[3]+nb_filter[4], nb_filter[3], nb_filter[3])
-        self.conv2_2 = VGGBlock(nb_filter[2]+nb_filter[3], nb_filter[2], nb_filter[2])
-        self.conv1_3 = VGGBlock(nb_filter[1]+nb_filter[2], nb_filter[1], nb_filter[1])
-        self.conv0_4 = VGGBlock(nb_filter[0]+nb_filter[1], nb_filter[0], nb_filter[0])
+        self.conv3_1 = VGGBlock(nb_filter[3]+nb_filter[4], nb_filter[3], nb_filter[3],use_bias=False)
+        self.conv2_2 = VGGBlock(nb_filter[2]+nb_filter[3], nb_filter[2], nb_filter[2],use_bias=False)
+        self.conv1_3 = VGGBlock(nb_filter[1]+nb_filter[2], nb_filter[1], nb_filter[1],use_bias=False)
+        self.conv0_4 = VGGBlock(nb_filter[0]+nb_filter[1], nb_filter[0], nb_filter[0],use_bias=False)
 
-        self.final = nn.Conv2d(nb_filter[0], self.n_classes, kernel_size=1)
+        self.final = nn.Conv2d(nb_filter[0], self.n_classes, kernel_size=1,bias=False)
 
 
     def ajust_padding(self,x1,x2):
