@@ -4,7 +4,7 @@ import torch.nn.functional as F
 import numpy as np
 
 __all__ = ['UNet', 'UNetNBN' , 'NestedUNet','PyramidUNet','PyramidNestedUNet','FCNN','FCNN2',
-'FCNNhub','UNetBnout','UNetTrainBnout','FCNNhubTDE','UNetTDE','UNetTDEBNout',
+'FCNNhub','UNetBnout','UNetTrainBNout','FCNNhubTDE','UNetTDE','UNetTDEBNout','FCNNhubBNout',
 'UNet_nbias','UNet_nbias_cls','UNet_nbias_clsv2']
 
 class FCNNhubTDE(nn.Module):
@@ -124,6 +124,36 @@ class FCNNhub(nn.Module):
         #     output=self.bn_out(output)
         # else:
         #     output = F.sigmoid(output)
+        return output
+
+class FCNNhubBNout(nn.Module):
+    def __init__(self,args):
+        super().__init__()
+        self.n_channels = args.input_channels
+        self.n_classes = args.num_classes
+        nb_filter = [2]
+        self.pool = nn.MaxPool2d(2, 2)
+        self.up = nn.Upsample(scale_factor=2, mode='bilinear', align_corners=True)
+
+        self.conv0_0 = VGGBlock(self.n_channels, nb_filter[0], nb_filter[0])
+        self.conv0_1 = VGGBlock(nb_filter[0], nb_filter[0], nb_filter[0])
+        self.final = nn.Conv2d(nb_filter[0], self.n_classes, kernel_size=1)
+        self.bn_out = nn.BatchNorm2d(self.n_classes)
+
+    def ajust_padding(self,x1,x2):
+        diffY = x1.size()[2] - x2.size()[2]
+        diffX = x1.size()[3] - x2.size()[3]
+
+        x2 = F.pad(x2, [diffX // 2, diffX - diffX // 2,
+                            diffY // 2, diffY - diffY // 2])
+        return [x1,x2]
+
+
+    def forward(self, input):
+        x0_0 = self.conv0_0(input)
+        x0_1 = self.conv0_1(x0_0)
+        output = self.final(x0_1)
+        output=self.bn_out(output)
         return output
 
 class VGGBlock(nn.Module):
@@ -612,8 +642,8 @@ class UNetTDE(nn.Module):
         x1_3 = self.conv1_3(torch.cat(self.ajust_padding(x1_0, self.up(x2_2)), 1))
         x0_4 = self.conv0_4(torch.cat(self.ajust_padding(x0_0, self.up(x1_3)), 1))
 
-        if self.train:  #when no model checker
-        #if False: #when in  model val 
+        #if self.train:  #when no model checker
+        if False: #when in  model val 
             self.overline_x = self.mu * self.overline_x + x0_4.detach().cpu().numpy()
             old_weight = self.final.weight.data
             new_weight = self.final.weight.data.clone()

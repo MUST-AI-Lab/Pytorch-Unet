@@ -3,11 +3,11 @@ import matplotlib.pyplot as plt
 import pandas as pd
 
 
-experiment='ce_nbias_clsv2'
+experiment='wfocal_bnout'
 filename="./result/trace/{}.csv".format(experiment)
 init_filename = "./result/trace/{}_init.csv".format(experiment)
-lossname ='CE no bias filter class v2'
-pix="ce_nbias_clsv2"
+lossname ='IW Focal BNout'
+pix="wfocal_bnout"
 epochs = 30
 
 weight_norm_kind = 'train_final_norm'

@@ -3,10 +3,10 @@ import matplotlib.pyplot as plt
 import pandas as pd
 
 
-experiment='ce_nbias_clsv2'
+experiment='default'
 filename="./result/{}.csv".format(experiment)
-experiment ='CE no bias clas v2'
-pix="ce_nbias_clsv2"
+experiment ='CE'
+pix="default"
 epochs = 30
 items = 10
 
@@ -42,10 +42,10 @@ for item in range(items):
     ax1.set_ylabel('norms and iou')
     ax2 = ax1.twinx()  # this is the important function
 
-    l1 = ax1.plot(categories,weight_norms,'b*-',label='weight norm')
+    l1 = ax1.plot(categories,weight_norms,'r*-',label='weight norm')
     l2 = ax1.plot(categories,gradient_norms,'-.',label='gradient norm')
     l3 = ax1.plot(categories,iou,'co-',label='iou')
-    l4 = ax2.plot(categories,logit,'r+-',label='logit norm')
+    l4 = ax2.plot(categories,logit,'b+-',label='logit norm')
 
     fig.legend()
     ax2.set_ylabel('logits norm')
@@ -79,10 +79,10 @@ ax1 = fig.add_subplot(111)
 ax1.set_ylabel('norms and iou')
 ax2 = ax1.twinx()  # this is the important function
 
-l1 = ax1.plot(categories,weight_norms,'b*-',label='weight norm')
+l1 = ax1.plot(categories,weight_norms,'r*-',label='weight norm')
 l2 = ax1.plot(categories,gradient_norms,'-.',label='gradient norm')
 l3 = ax1.plot(categories,iou,'co-',label='iou')
-l4 = ax2.plot(categories,logit,'r+-',label='logit norm')
+l4 = ax2.plot(categories,logit,'b+-',label='logit norm')
 
 fig.legend()
 ax2.set_ylabel('logits norm')
