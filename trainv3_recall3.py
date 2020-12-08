@@ -10,7 +10,7 @@ from tqdm import tqdm
 from albumentations.augmentations import transforms
 from albumentations.core.composition import Compose, OneOf
 from torch.utils.tensorboard import SummaryWriter
-from utils.weights_collate import label2_baseline_weight_by_prior
+from utils.weights_collate import label2_baseline_weight_by_prior,distribution2tensor
 
 from torch.utils.data import DataLoader, random_split
 from utils.tools import AverageMeter,str2bool,softmax_helper
@@ -227,19 +227,14 @@ def train_net(net,device,train_loader,args,epoch,nonlinear=softmax_helper):
             #     weight = None
             # iou as inverse weight
             global pre_statistic#reflesh 
-            pre_weight = None
             if len(pre_statistic) == 0:
-                weight = None
-            elif epoch >0:
-                distribute = np.array(pre_statistic)
-                weight = label2_baseline_weight_by_prior(args.num_classes,distribute,true_masks.cpu().detach().numpy(),w_min = 0., w_max= 10)
-                weight = torch.from_numpy(weight).type(torch.FloatTensor)
-                if pre_weight is None:
-                    pre_weight = weight
-                else:
-                    weight = 0.9 * pre_weight + weight
+                weight = batch['weight']
             else:
-                weight = None
+                distribute = pre_statistic
+                weight = distribution2tensor(args.num_classes,distribute,true_masks.cpu().detach().numpy())
+                weight = torch.from_numpy(weight).type(torch.FloatTensor)
+                weight = weight * batch['weight']
+
 
 
             assert imgs.shape[1] == net.n_channels, \
@@ -327,8 +322,14 @@ def eval_net(net, device, val_loader ,args,epoch,nonlinear=softmax_helper,miou_s
     if net.n_classes > 1:
         avg_meters = {'loss': AverageMeter(),'miou': AverageMeter()}
         if miou_split:# show detail for iou of each class
+            count = 0
             for item in datamaker.class_names:
                 avg_meters["iou_{}".format(item)] = AverageMeter()
+                avg_meters["tp_{}".format(count)] = AverageMeter()
+                avg_meters["fp_{}".format(count)] = AverageMeter()
+                avg_meters["tn_{}".format(count)] = AverageMeter()
+                avg_meters["fn_{}".format(count)] = AverageMeter()
+                count+=1
     else:
         avg_meters = {'loss': AverageMeter(),'iou': AverageMeter(),'pixel_error': AverageMeter(),'rand_error': AverageMeter(),'dice_coeff':AverageMeter()}
 
@@ -376,6 +377,10 @@ def eval_net(net, device, val_loader ,args,epoch,nonlinear=softmax_helper,miou_s
                             for key in statisic:
                                 iou = (statisic[key]['tp']*1.0) / (statisic[key]['tp']+statisic[key]['fp']+statisic[key]['fn']+(-1e-5))
                                 avg_meters["iou_{}".format(datamaker.class_names[key])].update(iou)
+                                avg_meters["tp_{}".format(key)].update(statisic[key]['tp'])
+                                avg_meters["fp_{}".format(key)].update(statisic[key]['fp'])
+                                avg_meters["tn_{}".format(key)].update(statisic[key]['tn'])
+                                avg_meters["fn_{}".format(key)].update(statisic[key]['fn'])
                 else:
                     pred = torch.sigmoid(mask_pred)
                     pred_int = (pred > 0.5).int()
@@ -413,14 +418,15 @@ def eval_net(net, device, val_loader ,args,epoch,nonlinear=softmax_helper,miou_s
         if miou_split:# show detail for iou of each class
             global pre_statistic#reflesh 
             new_pre_statistic=[]
+            count =0 
             for item in datamaker.class_names:
                 ret["iou_{}".format(item)] = avg_meters["iou_{}".format(item)].avg
                 #add last batch pred iou 
-                new_pre_statistic.append(avg_meters["iou_{}".format(item)].avg)
-            if len(pre_statistic)==0:
-                pre_statistic = np.array(new_pre_statistic)
-            else:
-                pre_statistic = 0.9* pre_statistic + 0.1 * np.array(new_pre_statistic)
+                recall = (avg_meters["fn_{}".format(count)].avg)/(avg_meters["fn_{}".format(count)].avg+avg_meters["tp_{}".format(count)].avg+1e-7)
+                new_pre_statistic.append(recall)
+                count+=1
+
+            pre_statistic = np.array(new_pre_statistic)
     else:
         ret['loss'] = avg_meters['loss'].avg
         ret['iou'] = avg_meters['iou'].avg
@@ -549,6 +555,7 @@ if __name__ == '__main__':
     savepoint=savepoints.__dict__[args.savepoint](args)
     try:
         rounds = range(start_epoch,args.epochs)
+        eval_net(net=net,device=device,val_loader=val_loader,epoch=-1,args=args)# first val initial model
         for epoch in rounds:
             # train
             train_log = train_net(net=net,device=device,train_loader=train_loader,epoch=epoch,args=args)

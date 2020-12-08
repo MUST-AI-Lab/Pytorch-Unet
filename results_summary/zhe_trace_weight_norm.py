@@ -3,11 +3,11 @@ import matplotlib.pyplot as plt
 import pandas as pd
 
 
-experiment='wfocal_bnout'
+experiment='norm_ce_tde_bnout'
 filename="./result/trace/{}.csv".format(experiment)
 init_filename = "./result/trace/{}_init.csv".format(experiment)
-lossname ='IW Focal BNout'
-pix="wfocal_bnout"
+lossname ='norm last layer ce tde bnout'
+pix="norm_ce_tde_bnout"
 epochs = 30
 
 weight_norm_kind = 'train_final_norm'

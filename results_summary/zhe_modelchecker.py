@@ -3,10 +3,10 @@ import matplotlib.pyplot as plt
 import pandas as pd
 
 
-experiment='default'
+experiment='norm_ce_tde_bnout'
 filename="./result/{}.csv".format(experiment)
-experiment ='CE'
-pix="default"
+experiment ='NORM ce TDE BNout'
+pix="norm_ce_tde_bnout"
 epochs = 30
 items = 10
 
