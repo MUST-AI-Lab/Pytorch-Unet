@@ -301,7 +301,6 @@ def train_net(net,device,train_loader,args,epoch,nonlinear=softmax_helper):
                 #nn.utils.clip_grad_value_(net.parameters(), 0.1)
                 #---------------------------gradient norm
                 pre_grad_norm = loss_norms
-
                 optimizer.step()
             else:
                 loss = loss/args.accumulation_step

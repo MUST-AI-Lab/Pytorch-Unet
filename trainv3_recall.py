@@ -287,7 +287,7 @@ def train_net(net,device,train_loader,args,epoch,nonlinear=softmax_helper):
                     avg_meters['final_norm_{}'.format(i)].update(weight_norms[i])
                     avg_meters['loss_gd_norm_{}'.format(i)].update(loss_norms[i])
                 #----------------------------
-                nn.utils.clip_grad_value_(net.parameters(), 0.1)
+                #nn.utils.clip_grad_value_(net.parameters(), 0.1)
                 optimizer.step()
             else:
                 loss = loss/args.accumulation_step

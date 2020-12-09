@@ -10,6 +10,7 @@ from tqdm import tqdm
 from albumentations.augmentations import transforms
 from albumentations.core.composition import Compose, OneOf
 from torch.utils.tensorboard import SummaryWriter
+from utils.weights_collate import label2_baseline_weight_by_prior,distribution2tensor
 
 from torch.utils.data import DataLoader, random_split
 from utils.tools import AverageMeter,str2bool,softmax_helper
@@ -26,13 +27,11 @@ try:
 except ImportError:
     OrderedDict = dict
 
-
 # options in config
 import archs
 import utils.savepoints as savepoints
 import losses
 import utils.dataset as datasets
-from utils.weights_collate import label2_baseline_weight_by_prior
 DATASET_NAMES = datasets.__all__
 ARCH_NAMES = archs.__all__
 SAVE_POINTS = savepoints.__all__
@@ -47,6 +46,7 @@ criterion = None
 n_train=0
 n_val=0
 datamaker = None
+pre_statistic=[]
 
 
 def get_args():
@@ -54,7 +54,7 @@ def get_args():
     parser = argparse.ArgumentParser(description='Train the UNet on images and target masks',
                                      formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument('--experiment', default='default')
-    parser.add_argument('-e', '--epochs', metavar='E', type=int, default=10,
+    parser.add_argument('-e', '--epochs', metavar='E', type=int, default=100,
                         help='Number of epochs', dest='epochs')
     parser.add_argument('-b', '--batch-size', metavar='B', type=int, nargs='?', default=1,
                         help='Batch size', dest='batchsize')
@@ -67,7 +67,7 @@ def get_args():
     parser.add_argument('--device_id', type=int, default=0,
                         help='a number for choose device', dest='device_id')
     # model
-    parser.add_argument('--arch', '-a', metavar='ARCH', default='FCNNhubBNout',
+    parser.add_argument('--arch', '-a', metavar='ARCH', default='FCNNhub',
                         choices=ARCH_NAMES,
                         help='model architecture: ' +
                         ' | '.join(ARCH_NAMES) +
@@ -86,7 +86,7 @@ def get_args():
                         ' (default: CrossEntropyLoss)')
     parser.add_argument('--weight_loss', default='true', type=str2bool)
     parser.add_argument('--weight_bias', type=float, default=1e-11)
-    parser.add_argument('--weight_type', default='batch_distribute_weight')
+    parser.add_argument('--weight_type', default='batch_baseline_weight')
     # hyper parameter for FilterLoss
     parser.add_argument('--tail_radio', type=float, default=0.05)
     parser.add_argument('--loss_reduce', default=True, type=str2bool)
@@ -204,15 +204,6 @@ def weight_norm_init(net,args):
     final = np.reshape(final,(args.num_classes))
     return final
 
-def maxmin(array):#一维归一化
-    maxcols=array.max()
-    mincols=array.min()
-    data_shape = array.shape
-    t_array=np.empty(data_shape)
-    for i in range(data_shape[0]):
-        t_array[i]=(array[i]-mincols)/(maxcols-mincols)
-    return t_array
-
 
 def train_net(net,device,train_loader,args,epoch,nonlinear=softmax_helper):
     net.train()
@@ -225,18 +216,27 @@ def train_net(net,device,train_loader,args,epoch,nonlinear=softmax_helper):
         avg_meters['final_norm_{}'.format(idx)] = AverageMeter()
         avg_meters['loss_gd_norm_{}'.format(idx)] = AverageMeter()
 
-    pre_grad_norm = None
     with tqdm(total=n_train, desc=f'Epoch {epoch + 1}/{args.epochs}', unit='img') as pbar:
         iter =0
         for batch in train_loader:
             imgs = batch['image']
             true_masks = batch['mask']
-            if pre_grad_norm is not None:
-                factor = maxmin(pre_grad_norm)#归一化
-                weight = label2_baseline_weight_by_prior(args.num_classes,factor,true_masks.cpu().detach().numpy())
-                weight = torch.from_numpy(weight).type(torch.FloatTensor)
-            else:
+            # if 'weight' in batch:
+            #     weight = batch['weight']
+            # else:
+            #     weight = None
+            # iou as inverse weight
+            global pre_statistic#reflesh 
+            if len(pre_statistic) == 0:
                 weight = None
+            else:
+                distribute = pre_statistic
+                weight = distribution2tensor(args.num_classes,distribute,true_masks.cpu().detach().numpy())
+                weight = torch.from_numpy(weight).type(torch.FloatTensor)
+                weight = weight 
+
+
+
             assert imgs.shape[1] == net.n_channels, \
                     f'Network has been defined with {net.n_channels} input channels, ' \
                     f'but loaded images have {imgs.shape[1]} channels. Please check that ' \
@@ -288,12 +288,7 @@ def train_net(net,device,train_loader,args,epoch,nonlinear=softmax_helper):
                     avg_meters['final_norm_{}'.format(i)].update(weight_norms[i])
                     avg_meters['loss_gd_norm_{}'.format(i)].update(loss_norms[i])
                 #----------------------------
-                nn.utils.clip_grad_value_(net.parameters(), 0.1)
-                #---------------------------gradient norm
-                if pre_grad_norm is None:
-                    pre_grad_norm = loss_norms
-                else:
-                    pre_grad_norm = 0.9 * pre_grad_norm + loss_norms
+                #nn.utils.clip_grad_value_(net.parameters(), 0.1)
                 optimizer.step()
             else:
                 loss = loss/args.accumulation_step
@@ -327,8 +322,14 @@ def eval_net(net, device, val_loader ,args,epoch,nonlinear=softmax_helper,miou_s
     if net.n_classes > 1:
         avg_meters = {'loss': AverageMeter(),'miou': AverageMeter()}
         if miou_split:# show detail for iou of each class
+            count = 0
             for item in datamaker.class_names:
                 avg_meters["iou_{}".format(item)] = AverageMeter()
+                avg_meters["tp_{}".format(count)] = AverageMeter()
+                avg_meters["fp_{}".format(count)] = AverageMeter()
+                avg_meters["tn_{}".format(count)] = AverageMeter()
+                avg_meters["fn_{}".format(count)] = AverageMeter()
+                count+=1
     else:
         avg_meters = {'loss': AverageMeter(),'iou': AverageMeter(),'pixel_error': AverageMeter(),'rand_error': AverageMeter(),'dice_coeff':AverageMeter()}
 
@@ -376,6 +377,10 @@ def eval_net(net, device, val_loader ,args,epoch,nonlinear=softmax_helper,miou_s
                             for key in statisic:
                                 iou = (statisic[key]['tp']*1.0) / (statisic[key]['tp']+statisic[key]['fp']+statisic[key]['fn']+(-1e-5))
                                 avg_meters["iou_{}".format(datamaker.class_names[key])].update(iou)
+                                avg_meters["tp_{}".format(key)].update(statisic[key]['tp'])
+                                avg_meters["fp_{}".format(key)].update(statisic[key]['fp'])
+                                avg_meters["tn_{}".format(key)].update(statisic[key]['tn'])
+                                avg_meters["fn_{}".format(key)].update(statisic[key]['fn'])
                 else:
                     pred = torch.sigmoid(mask_pred)
                     pred_int = (pred > 0.5).int()
@@ -411,8 +416,17 @@ def eval_net(net, device, val_loader ,args,epoch,nonlinear=softmax_helper,miou_s
         ret['loss'] = avg_meters['loss'].avg
         ret['mIOU'] = avg_meters['miou'].avg
         if miou_split:# show detail for iou of each class
+            global pre_statistic#reflesh 
+            new_pre_statistic=[]
+            count =0 
             for item in datamaker.class_names:
                 ret["iou_{}".format(item)] = avg_meters["iou_{}".format(item)].avg
+                #add last batch pred iou 
+                #recall = (avg_meters["fn_{}".format(count)].avg)/(avg_meters["fn_{}".format(count)].avg+avg_meters["tp_{}".format(count)].avg+1e-7)
+                new_pre_statistic.append(1-avg_meters["iou_{}".format(item)].avg)
+                count+=1
+
+            pre_statistic = np.array(new_pre_statistic)
     else:
         ret['loss'] = avg_meters['loss'].avg
         ret['iou'] = avg_meters['iou'].avg
@@ -541,6 +555,7 @@ if __name__ == '__main__':
     savepoint=savepoints.__dict__[args.savepoint](args)
     try:
         rounds = range(start_epoch,args.epochs)
+        eval_net(net=net,device=device,val_loader=val_loader,epoch=-1,args=args)# first val initial model
         for epoch in rounds:
             # train
             train_log = train_net(net=net,device=device,train_loader=train_loader,epoch=epoch,args=args)
