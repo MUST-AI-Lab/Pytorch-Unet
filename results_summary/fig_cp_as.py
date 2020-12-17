@@ -9,6 +9,7 @@ class_names = [
             "Sky","SUVPickupTruck","TrafficCone","TrafficLight","Train","Tree","Truck_Bus","Tunnel",
             "VegetationMisc","Void","Wall"
         ]
+
 def labelcolormap(N):
         cmap = np.zeros((N, 3), dtype = np.uint8)
         cmap[0] = [64,128,64]
@@ -64,15 +65,16 @@ for item in class_names:
     summary_factor.append(df['val_iou_{}'.format(item)][0])
 
 fig, ax = plt.subplots()
-summary_factor = np.array(summary_factor )
-idx = np.argsort(summary_factor)
-summary_factor = np.sort(summary_factor)
+idx = [17, 4, 26, 21, 19, 9, 2, 10, 5, 31, 30, 14, 16, 24, 8, 27, 12, 29, 7, 20, 1, 6, 11, 0, 3, 13, 15, 18, 22, 23, 25, 28]
 names = [class_names[k] for  k in idx]
 colors = [cmap[k] for k in idx]
 for i in range(len(class_names)):#total
     ax.bar(names[i], summary_factor[i],color=RGB_to_Hex("{},{},{}".format(colors[i][0],colors[i][1],colors[i][2])))
 for a,b in zip(names,summary_factor):
-    plt.text(a, b+0, '%.2f' % b, ha='center', va= 'bottom',fontsize=10)
+    if b >0:
+        plt.text(a, b+0, '+%.3f' % b, ha='center', va= 'bottom',fontsize=10)
+    elif b<0:
+        plt.text(a, b-0.005, '%.3f' % b, ha='center', va= 'bottom',fontsize=10)
 plt.xticks(rotation = 270,fontsize=10)
 plt.title('The iou comparsion of each class')
 plt.show()
