@@ -2,13 +2,23 @@ import numpy as np
 import matplotlib.pyplot as plt  
 import pandas as pd
 import os 
+import argparse
 
+def get_args():
+    # base
+    parser = argparse.ArgumentParser(description='Train the UNet on images and target masks',
+                                     formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    parser.add_argument('--experiment', default='focal_apd')
+    parser.add_argument('--experiment_name', default='FOCAL')
+    return parser.parse_args()
 
-experiment='focal_apd'
+args = get_args()
+
+experiment=args.experiment
 os.mkdir("./{}".format(experiment))
 filename="./result/{}.csv".format(experiment)
-experiment_name ='FOCAL'
-pix="focal_apd"
+experiment_name =args.experiment_name
+pix=args.experiment
 epochs = 30
 items = 10
 
