@@ -173,7 +173,7 @@ ax2 = ax1.twinx()  # this is the important function
 
 l4 = ax2.plot(categories,avg_ngt_slide,'+--',color='#ff9955',label='ngt area')
 l1 = ax1.plot(categories,avg_slide,'r*-',label='total')
-l2 = ax1.plot(categories,avg_gt_slide,'-.',label='gt area')
+l2 = ax2.plot(categories,avg_gt_slide,'-.',label='gt area')
 l3 = ax1.plot(categories,iou,'co-',label='iou')
 
 
@@ -211,7 +211,7 @@ ax2 = ax1.twinx()  # this is the important function
 
 l4 = ax2.plot(categories,val_ngt_slide,'+--',color='#ff9955',label='ngt area')
 l1 = ax1.plot(categories,val_slide,'r*-',label='total')
-l2 = ax1.plot(categories,val_gt_slide,'-.',label='gt area')
+l2 = ax2.plot(categories,val_gt_slide,'-.',label='gt area')
 l3 = ax1.plot(categories,iou,'co-',label='iou')
 
 

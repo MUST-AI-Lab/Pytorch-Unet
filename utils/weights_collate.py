@@ -6,7 +6,14 @@ import re
 from torch._six import container_abcs, string_classes, int_classes
 np_str_obj_array_pattern = re.compile(r'[SaUO]')
 
-    # baseline distribution for one
+# count label for each category 
+def label_count(class_numbers,label, w_min: float = 1., w_max: float = 2e5):
+    weight = np.ones(class_numbers, dtype='float32')
+    for i in range(class_numbers):
+        weight[i] =(np.sum(label == i)) #Make sure here should be same denominator, Otherwise the value is not allowed to be used to get the weight
+    return weight
+
+# baseline distribution for one
 def label2distribute(class_numbers,label, w_min: float = 1., w_max: float = 2e5):
     weight = np.ones(class_numbers, dtype='float32')
     N = np.prod(label.shape)

@@ -19,7 +19,7 @@ from albumentations.augmentations import transforms
 from albumentations.core.composition import Compose, OneOf
 from sklearn.model_selection import train_test_split
 from torch.utils.data import DataLoader, random_split
-from utils.weights_collate import default_collate_with_weight,label2_baseline_weight_by_prior,label2distribute,distribution2tensor
+from utils.weights_collate import default_collate_with_weight,label2_baseline_weight_by_prior,label2distribute,distribution2tensor,label_count
 import pandas as pd
 
 __all__ = ['BasicDataset', 'CarvanaDataset','MICDataset','DSBDataset','CityScapesDataset','PascalDataset','Cam2007Dataset','Cam2007DatasetV2']
@@ -356,6 +356,8 @@ class Cam2007DatasetV2(Dataset):
                     'batch_distribute_weight':distribution,
                     'class_nums':len(self.class_names)
             }
+        elif self.args.weight_type == 'single_count':
+            weight = label_count(len(self.class_names),label)
         elif self.args.weight_type == 'none':
             #防止两个命令冲突
             return {
@@ -364,6 +366,7 @@ class Cam2007DatasetV2(Dataset):
             }
         else:
             assert None ,"uknow weight type"
+
         if self.args.weight_loss:
             return {
                     'image': torch.from_numpy(img).type(torch.FloatTensor),
