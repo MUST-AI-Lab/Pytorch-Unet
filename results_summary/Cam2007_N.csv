@@ -1,0 +1,3 @@
+id,Animal,Archway,Bicyclist,Bridge,Building,Car,CartLuggagePram,Child,Column_Pole,Fence,LaneMkgsDriv,LaneMkgsNonDriv,Misc_Text,MotorcycleScooter,OtherMoving,ParkingBlock,Pedestrian,Road,RoadShoulder,Sidewalk,SignSymbol,Sky,SUVPickupTruck,TrafficCone,TrafficLight,Train,Tree,Truck_Bus,Tunnel,VegetationMisc,Void,Wall
+number,0,1,3,0,8,3,1,1,6,2,1,1,1,0,1,0,1,1,0,3,1,1,0,0,3,0,6,1,0,1,1,3
+V,20,10,200,20,150,150,10,100,50,60,10,1.00E+01,10,10,150,10,10,20,20,20,20,300,10,10,100,100,160,100,100,100,500,100
