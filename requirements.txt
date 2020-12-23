@@ -2,9 +2,8 @@ matplotlib
 numpy
 Pillow
 torch
-torchvision
-tensorboard
 future
 albumentations
-glob
 cv2
+torchvision
+tensorboard

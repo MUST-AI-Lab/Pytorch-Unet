@@ -60,12 +60,12 @@ def get_args():
                         help='Batch size', dest='accumulation_step')
     parser.add_argument('--seed', type=int, default=45,
                         help='a seed  for initial val', dest='seed')
-    parser.add_argument('--device', default='cuda',
+    parser.add_argument('--device', default='cpu',
                         help='choose device', dest='device')
     parser.add_argument('--device_id', type=int, default=0,
                         help='a number for choose device', dest='device_id')
     # model
-    parser.add_argument('--arch', '-a', metavar='ARCH', default='UNetTDEv4',
+    parser.add_argument('--arch', '-a', metavar='ARCH', default='FCNNhub',
                         choices=ARCH_NAMES,
                         help='model architecture: ' +
                         ' | '.join(ARCH_NAMES) +
