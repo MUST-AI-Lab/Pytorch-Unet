@@ -8,8 +8,8 @@ def get_args():
     # base
     parser = argparse.ArgumentParser(description='Train the UNet on images and target masks',
                                      formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    parser.add_argument('--experiment', default='focal_apd')
-    parser.add_argument('--experiment_name', default='FOCAL')
+    parser.add_argument('--experiment', default='focal_bnout_apd')
+    parser.add_argument('--experiment_name', default='Focal BNout')
     return parser.parse_args()
 
 args = get_args()
