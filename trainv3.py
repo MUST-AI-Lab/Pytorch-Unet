@@ -159,6 +159,9 @@ def get_args():
                         ' (default: StillFalse)')
     parser.add_argument('--force_save_last', dest='force_save_last', type=str, default=True,
                         help='Load model from a .pth file')
+    parser.add_argument('--no_replace',type=str,default='')
+    parser.add_argument('--continnue', type=str, default=False,
+                        help='continnue to train')
 
 
     return parser.parse_args()
@@ -458,7 +461,12 @@ if __name__ == '__main__':
         load_from = args.load #备份加载位置，因为args会被替换
         checkpoint = torch.load(args.load, map_location=device)
         if 'args' in checkpoint:#兼容设置：因为旧版的部分运行保存没有保存参数args，所以有些读取是没有这个参数的 以免报错
+            old_args = args
             args = checkpoint['args']
+            if len(old_args.no_replace) != 0:
+                keeps = old_args.no_replace.split(',')
+                for keep in keeps:
+                    args.__dict__[keep] = old_args.__dict__[keep]     
             logging.info(f'''reload training:
             args:          {args}
             ''')
@@ -494,12 +502,13 @@ if __name__ == '__main__':
     if load_from is not None:
         if 'args' in checkpoint:#新版保存了 网络状态，优化器状态等，旧版没有，作兼容
             net.load_state_dict(checkpoint['net'])
-            optimizer.load_state_dict(checkpoint['optimizer'])
-            for state in optimizer.state.values():
-                for k, v in state.items():
-                    if torch.is_tensor(v):
-                        state[k] = v.cuda()
-            start_epoch = checkpoint['epoch']
+            if args.continnue:
+                optimizer.load_state_dict(checkpoint['optimizer'])
+                for state in optimizer.state.values():
+                    for k, v in state.items():
+                        if torch.is_tensor(v):
+                            state[k] = v.cuda()
+                start_epoch = checkpoint['epoch']
             logging.info(f'Model loaded from {load_from} in epoch {start_epoch}')
         else:
             net.load_state_dict(checkpoint)
