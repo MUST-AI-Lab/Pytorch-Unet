@@ -129,37 +129,71 @@ def crop_and_save(target,target_type,img_id,output_path,startx,starty,endx,endy)
 def box_crop(target,target_type,img_id,output_path,centerx,centery,box_width,box_height,margin_vertical,margin_horizontal):
   if target_type == 'file':
     img = [cv2.imread(target)]
+  else:
+    names = file_name(target)
+    img = [cv2.imread('{}{}'.format(target,name)) for name in names]
   total_w = 2*box_width+2*margin_vertical
   total_h = 2*box_height+2*margin_horizontal
   #left up 
   startx = centerx -(int)(0.5*box_width+margin_vertical)
   starty = centery - (int)(0.5*box_height+margin_horizontal)
-  sub= crop(img,startx,starty,startx+total_w,starty+total_h)
-  cv2.imwrite(output_path+'{}_leftup.png'.format(img_id),sub, [cv2.IMWRITE_PNG_COMPRESSION, 0])
+  for idx in range(len(img)):
+    sub= crop(img[idx],startx,starty,startx+total_w,starty+total_h)
+    #print(sub)
+    if target_type == 'file':
+      maybe_create(output_path)
+      cv2.imwrite(output_path+'{}_leftup.png'.format(img_id),sub, [cv2.IMWRITE_PNG_COMPRESSION, 0])
+    else: 
+      maybe_create(output_path)
+      maybe_create('{}/{}/'.format(output_path,names[idx][:-4]))
+      cv2.imwrite('{}/{}/'.format(output_path,names[idx][:-4])+'{}_leftup.png'.format(img_id),sub, [cv2.IMWRITE_PNG_COMPRESSION, 0])
 
   #left down
   startx = centerx -(int)(0.5*box_width+margin_vertical)
   starty = centery - (int)(1.5*box_height+margin_horizontal)
-  sub= crop(img,startx,starty,startx+total_w,starty+total_h)
-  cv2.imwrite(output_path+'{}_leftdown.png'.format(img_id),sub, [cv2.IMWRITE_PNG_COMPRESSION, 0])
+  for idx in range(len(img)):
+    sub= crop(img[idx],startx,starty,startx+total_w,starty+total_h)
+    if target_type == 'file':
+      maybe_create(output_path)
+      cv2.imwrite(output_path+'{}_leftdown.png'.format(img_id),sub, [cv2.IMWRITE_PNG_COMPRESSION, 0])
+    else:
+      maybe_create(output_path)
+      maybe_create('{}/{}/'.format(output_path,names[idx][:-4]))
+      cv2.imwrite('{}/{}/'.format(output_path,names[idx][:-4])+'{}_leftdown.png'.format(img_id),sub, [cv2.IMWRITE_PNG_COMPRESSION, 0])
 
   #right up
   startx = centerx - (int)(1.5*box_width+margin_vertical)
   starty = centery - (int)(0.5*box_height+margin_horizontal)
-  sub= crop(img,startx,starty,startx+total_w,starty+total_h)
-  cv2.imwrite(output_path+'{}_rightup.png'.format(img_id),sub, [cv2.IMWRITE_PNG_COMPRESSION, 0])
+  for idx in range(len(img)):
+    sub= crop(img[idx],startx,starty,startx+total_w,starty+total_h)
+    if target_type == 'file':
+      maybe_create(output_path)
+      cv2.imwrite(output_path+'{}_rightup.png'.format(img_id),sub, [cv2.IMWRITE_PNG_COMPRESSION, 0])
+    else:
+      maybe_create(output_path)
+      maybe_create('{}/{}/'.format(output_path,names[idx][:-4]))
+      cv2.imwrite('{}/{}/'.format(output_path,names[idx][:-4])+'{}_rightup.png'.format(img_id),sub, [cv2.IMWRITE_PNG_COMPRESSION, 0])
+
 
   #right down
   startx = centerx - (int)(1.5*box_width+margin_vertical)
   starty = centery - (int)(1.5*box_height+margin_horizontal)
-  sub= crop(img,startx,starty,startx+total_w,starty+total_h)
-  cv2.imwrite(output_path+'{}_rightdown.png'.format(img_id),sub, [cv2.IMWRITE_PNG_COMPRESSION, 0])
+  for idx in range(len(img)):
+    sub= crop(img[idx],startx,starty,startx+total_w,starty+total_h)
+    if target_type == 'file':
+      maybe_create(output_path)
+      cv2.imwrite(output_path+'{}_rightdown.png'.format(img_id),sub, [cv2.IMWRITE_PNG_COMPRESSION, 0])
+    else:
+      maybe_create(output_path)
+      maybe_create('{}/{}/'.format(output_path,names[idx][:-4]))
+      cv2.imwrite('{}/{}/'.format(output_path,names[idx][:-4])+'{}_rightdown.png'.format(img_id),sub, [cv2.IMWRITE_PNG_COMPRESSION, 0])
 
 def random_crop(target,target_type,img_id,output_path,centerx,centery,box_width,box_height,total_width,total_height,sample):
   if target_type == 'file':
     img = [cv2.imread(target)]
   else:
     names = file_name(target)
+    print(names)
     img = [cv2.imread('{}{}'.format(target,name)) for name in names]
 
   max_width = total_width-box_width

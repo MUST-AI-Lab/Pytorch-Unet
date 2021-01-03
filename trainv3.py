@@ -65,7 +65,7 @@ def get_args():
     parser.add_argument('--device_id', type=int, default=0,
                         help='a number for choose device', dest='device_id')
     # model
-    parser.add_argument('--arch', '-a', metavar='ARCH', default='FCNNhub',
+    parser.add_argument('--arch', '-a', metavar='ARCH', default='UNet',
                         choices=ARCH_NAMES,
                         help='model architecture: ' +
                         ' | '.join(ARCH_NAMES) +
@@ -73,35 +73,35 @@ def get_args():
     parser.add_argument('--deep_supervision', default=False, type=str2bool)
     parser.add_argument('--input_channels', default=3, type=int,
                         help='input channels')
-    parser.add_argument('--num_classes', default=32, type=int,
+    parser.add_argument('--num_classes', default=2, type=int,
                         help='number of classes')
 
     # loss
-    parser.add_argument('--loss', default='EqualizationLossV4',
+    parser.add_argument('--loss', default='WeightCrossEntropyLoss',
                         choices=LOSS_NAMES,
                         help='loss: ' +
                         ' | '.join(LOSS_NAMES) +
-                        ' (default: CrossEntropyLoss)')
-    parser.add_argument('--weight_loss', default='true', type=str2bool)
+                        ' (default: WeightBCELoss)')
+    parser.add_argument('--weight_loss', default='False', type=str2bool)
     parser.add_argument('--weight_bias', type=float, default=1e-11)
-    parser.add_argument('--weight_type', default='batch_distribute_weight')
+    parser.add_argument('--weight_type', default='none')
     # hyper parameter for FilterLoss
     parser.add_argument('--tail_radio', type=float, default=0.05)
     parser.add_argument('--loss_reduce', default=True, type=str2bool)
 
     # dataset
-    parser.add_argument('--dataset', metavar='DATASET', default='Cam2007DatasetV2',
+    parser.add_argument('--dataset', metavar='DATASET', default='KeyBoard',
                         choices=DATASET_NAMES,
                         help='model architecture: ' +
                         ' | '.join(DATASET_NAMES) +
                         ' (default: BasicDataset)')
-    parser.add_argument('--data_dir', default='./data/Cam2007_n',
+    parser.add_argument('--data_dir', default='./data/keyboard_480_480',
                         help='dataset_location_dir')
     parser.add_argument('--num_workers', default=0, type=int)
     #for dsb dataset compact
-    parser.add_argument('--input_w', default=96, type=int,
+    parser.add_argument('--input_w', default=360, type=int,
                         help='image width')
-    parser.add_argument('--input_h', default=96, type=int,
+    parser.add_argument('--input_h', default=360, type=int,
                         help='image height')
     parser.add_argument('--img_ext', default='.png',
                         help='image file extension')

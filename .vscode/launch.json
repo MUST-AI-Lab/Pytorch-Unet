@@ -75,7 +75,7 @@
             "request": "launch",
             "program": "${file}",
             "console": "integratedTerminal",
-            "args": ["--dataset","Cam2007DatasetV2","--load","./checkpoint/CP_ex.ce_baseline_epoch30_UNet_Cam2007DatasetV2.pth"]
+            "args": ["--dataset","Cam2007DatasetV2","--load","./checkpoint/CP_ex.default_epoch10_UNet_KeyBoard.pth","--no_replace","data_dir","--data_dir","./data/keyboard_320_320"]
         }
     ]
 }

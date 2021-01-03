@@ -94,7 +94,7 @@ class BCEDiceLoss(nn.Module):
         super().__init__()
         self.args = args
 
-    def forward(self, input,epoch, target):
+    def forward(self, input,target,epoch,weights=None):
         bce = F.binary_cross_entropy_with_logits(input, target)
         smooth = 1e-5
         input = torch.sigmoid(input)
@@ -117,6 +117,26 @@ class LovaszHingeLoss(nn.Module):
         loss = lovasz_hinge(input, target, per_image=True)
 
         return loss
+
+class WBCEWithLogitsLoss(nn.Module):
+    def __init__(self,args):
+        super().__init__()
+        self.args = args
+        self.criterion = nn.CrossEntropyLoss()
+    
+    def forward(self, input,target,epoch,weights=None):
+        shp_preds = input.shape
+        shp_labels = target.shape
+        if len(shp_preds) != len(shp_labels):
+            target = target.view((shp_labels[0], 1, *shp_labels[1:]))
+        onehot = torch.zeros(shp_preds)
+        if input.device.type == "cuda":
+            onehot = onehot.cuda(target.device.index)
+        onehot.scatter_(1, target, 1)
+
+        bce = F.binary_cross_entropy_with_logits(input, onehot)
+        return bce
+
 
 # <--------------------------- MULTICLASS LOSSES --------------------------->
 # ================================================
