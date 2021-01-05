@@ -90,10 +90,14 @@ def divide_img(target,target_type,img_id,output_path,div_w=500,div_h=500):
   dis_h=int(np.floor(h/n))
   dis_w=int(np.floor(w/m))
   num=0
+
+  maybe_create(output_path)
+  f = open('{}/total.txt'.format(output_path),'w')
   for i in range(n):
     for j in range(m):
       num+=1
       print('i,j=({},{})'.format(i,j))
+      f.write('{}_{}_{}\n'.format(img_id,i,j))
       for idx in range(len(img)):
         sub=crop(img[idx],dis_w*j,dis_h*i,dis_w*(j+1),dis_h*(i+1)) #img[dis_h*i:dis_h*(i+1),dis_w*j:dis_w*(j+1),:]
         if target_type == 'file':
@@ -103,6 +107,7 @@ def divide_img(target,target_type,img_id,output_path,div_w=500,div_h=500):
           maybe_create(output_path)
           maybe_create('{}/{}/'.format(output_path,names[idx][:-4]))
           cv2.imwrite('{}/{}/'.format(output_path,names[idx][:-4])+'{}_{}_{}.png'.format(img_id,i,j),sub, [cv2.IMWRITE_PNG_COMPRESSION, 0])
+  f.close()
 
 def crop_and_save(target,target_type,img_id,output_path,startx,starty,endx,endy):
   if target_type == 'file':

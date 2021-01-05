@@ -113,7 +113,7 @@ class KeyBoard(Dataset):
         self.data_fns = sample_array("{}/{}".format(self.data_dir,cfg))
         print("There are {} pictures.".format(len(self.data_fns)))
         print("files name arrays are {}".format(self.data_fns))
-        for ids in self.data_fns:
+        for ids in tqdm(self.data_fns):
             #image = np.load('{}/{}/{}.npy'.format(self.data_dir,img,ids ))
             #label = np.load('{}/{}/{}.npy'.format(self.data_dir,GT,ids ))
             image = Image.open('{}/{}/{}{}'.format(self.data_dir,img,ids,self.args.img_ext)).convert("RGB")

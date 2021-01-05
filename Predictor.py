@@ -350,6 +350,10 @@ if __name__ == '__main__':
         log['gradient_norm_{}'.format(i)] = []
         log['logit_norm_{}'.format(i)] = []
         log['iou_{}'.format(i)] = []
+        log['tp_{}'.format(i)] = []
+        log['tn_{}'.format(i)] = []
+        log['fp_{}'.format(i)] = []
+        log['fn_{}'.format(i)] = []
 
 
     net.train() #因为要获得对应的损失梯度，所以需要打开训练开关
@@ -404,6 +408,10 @@ if __name__ == '__main__':
                     for key in statisic:
                         iou = (statisic[key]['tp']*1.0) / (statisic[key]['tp']+statisic[key]['fp']+statisic[key]['fn']+(-1e-5))
                         log['iou_{}'.format(key)].append(iou)
+                        log['tp_{}'.format(key)].append(statisic[key]['tp'])
+                        log['tn_{}'.format(key)].append(statisic[key]['tn'])
+                        log['fp_{}'.format(key)].append(statisic[key]['fp'])
+                        log['fn_{}'.format(key)].append(statisic[key]['fn'])
                     #--------------------------for logits
                     softmax_logits = softmax_helper(mask_pred[i].unsqueeze(0))
                     norms = logit_norms(mask_pred[i],args)
