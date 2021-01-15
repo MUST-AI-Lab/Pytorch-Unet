@@ -22,7 +22,7 @@ from torch.utils.data import DataLoader, random_split
 from utils.weights_collate import default_collate_with_weight,label2_baseline_weight_by_prior,label2distribute,distribution2tensor,label_count
 import pandas as pd
 
-__all__ = ['BasicDataset', 'CarvanaDataset','MICDataset','DSBDataset','CityScapesDataset','PascalDataset','Cam2007Dataset','Cam2007DatasetV2','KeyBoard']
+__all__ = ['BasicDataset', 'CarvanaDataset','MICDataset','DSBDataset','CityScapesDataset','PascalDataset','Cam2007Dataset','Cam2007DatasetV2','KeyBoard','KeyBoard2']
 def RGB_to_Hex(tmp):
     rgb = tmp.split(',')#将RGB格式划分开来
     strs = '#'
@@ -31,6 +31,184 @@ def RGB_to_Hex(tmp):
         #将R、G、B分别转化为16进制拼接转换并大写
         strs += str(hex(num))[-2:].replace('x','0').upper()
     return strs
+
+class KeyBoard2(Dataset):
+    def __init__(self,args,default_pairs = True):
+        self.data_dir =args.data_dir
+        self.args = args
+        self.cmap = self.labelcolormap(4)
+        self.class_names = ["Background", "Key","Key_Light","Leak"]
+    
+    def labelcolormap(self,N):
+        cmap = np.zeros((N, 3), dtype = np.uint8)
+        cmap[0] = [0,0,0]
+        cmap[1] = [128,0,0]
+        cmap[2] = [0,128,0]
+        cmap[3] = [128,128,0]
+        return cmap
+    
+    def get_disturibution(self):
+        keeper = dict()
+        keeper['id'] = []
+        for item in self.class_names:
+            keeper[item] = []
+        for _,label,ids in tqdm(self.pairs):
+            keeper['id'].append(ids)
+            total = np.prod(label.shape)
+            total_pixel =0
+            for i in range(len(self.class_names)):
+                state = (label==i).astype(np.int)
+                total_pixel +=  np.sum(state)
+                keeper[self.class_names[i]].append((np.sum(state))/total)
+            #check sum
+            assert total == total_pixel,"not total pixel"
+
+        keeper['id'].append('total')
+        summary_factor = []
+        for item in self.class_names:#total
+            factor = np.sum(keeper[item])/len(self.pairs)
+            keeper[item].append(factor)
+            summary_factor.append(factor)
+        print(summary_factor)
+        summary_factor2 = summary_factor.copy()
+        idx = sorted(range(len(summary_factor2)), key=lambda k: summary_factor2[k],reverse=True)
+        print(idx)
+        self.summary_factor = summary_factor
+
+    def __call__(self,args):
+        train = KeyBoard2(args)
+        train.get_pairs("train.txt")
+        train.get_disturibution()
+        val = KeyBoard2(args)
+        val.get_pairs("test.txt")
+        val.get_disturibution()
+        n_train = len(train)
+        n_val = len(val)
+        train_loader = DataLoader(train, batch_size=args.batchsize, shuffle=False, num_workers=args.num_workers, pin_memory=True,collate_fn=default_collate_with_weight)
+        val_loader = DataLoader(val, batch_size=args.batchsize, shuffle=False, num_workers=args.num_workers, pin_memory=True,collate_fn=default_collate_with_weight)
+        return train_loader,val_loader,n_train,n_val
+
+    def __len__(self):
+        return len(self.pairs)
+        # map rbg to label
+    
+    def rgb2label(self,rgb):
+        for index in range(len(self.cmap)):
+            u = rgb==self.cmap[index]
+            if u[0] and u[1] and u[2]:
+                return index
+        return 0
+
+    # change label from rbg to class
+    def handle_label(self,label):
+        label_axes = (label.shape[0],label.shape[1])
+        new_label = np.zeros(label_axes).astype(np.uint8)
+        for i in range(label.shape[0]):
+            for j in range(label.shape[1]):
+                new_label[i][j] = self.rgb2label(label[i][j])
+        return new_label
+
+    #get pair from png
+    def get_pairs(self,cfg,img="IMG",GT="GT",imshow=False):
+        self.pairs = []
+        print("Loading data from filesystem...")
+        self.data_fns = sample_array("{}/{}".format(self.data_dir,cfg))
+        print("There are {} pictures.".format(len(self.data_fns)))
+        print("files name arrays are {}".format(self.data_fns))
+        for ids in tqdm(self.data_fns):
+            #image = np.load('{}/{}/{}.npy'.format(self.data_dir,img,ids ))
+            #label = np.load('{}/{}/{}.npy'.format(self.data_dir,GT,ids ))
+            image = Image.open('{}/{}/{}{}'.format(self.data_dir,img,ids,self.args.img_ext)).convert("RGB")
+            image = np.array(image)
+            label =  Image.open('{}/{}/{}{}'.format(self.data_dir,GT,ids,self.args.img_ext)).convert("RGB")
+            label = np.array(label)
+            label = self.handle_label(label)
+            if imshow:
+                rev_label = self.revert_label2rgb(label)
+                image,rev_label = Image.fromarray(image), Image.fromarray(np.uint8(rev_label))
+                fig, axes = plt.subplots(1, 2, figsize=(10, 5))
+                axes[0].imshow(image)
+                axes[1].imshow(rev_label)
+                plt.show()
+            self.pairs.append((image,label,ids))
+    
+    def __getitem__(self, idx):
+        cityscape,label,id = self.pairs[idx]
+        img = cityscape.astype('float32') / 255
+        img = cityscape.transpose(2, 0, 1).astype('float32')
+        if self.args.weight_type == 'single_baseline_weight':
+            summary_factor = label2distribute(len(self.class_names),label)
+            weight = label2_baseline_weight_by_prior(len(self.class_names),summary_factor,label)
+        elif self.args.weight_type == 'none':
+            #防止两个命令冲突
+            return {
+                    'image': torch.from_numpy(img).type(torch.FloatTensor),
+                    'mask': torch.from_numpy(label).type(torch.IntTensor)
+            }
+        else:
+            assert None ,"uknow weight type"
+
+        if self.args.weight_loss:
+            return {
+                    'image': torch.from_numpy(img).type(torch.FloatTensor),
+                    'mask': torch.from_numpy(label).type(torch.IntTensor),
+                    'weight':torch.from_numpy(weight).type(torch.FloatTensor)
+            }
+        else:
+            return {
+                    'image': torch.from_numpy(img).type(torch.FloatTensor),
+                    'mask': torch.from_numpy(label).type(torch.IntTensor)
+            }
+
+        # change label from class label to rbg
+    
+    def label2rgb(self,label):
+        return self.cmap[label]
+
+    def revert_label2rgb(self, label):
+        label_axes = (label.shape[0],label.shape[1],3)
+        new_label = np.zeros(label_axes).astype(np.uint8)
+        for i in range(label.shape[0]):
+            for j in range(label.shape[1]):
+                color = self.label2rgb(label[i,j])
+                new_label[i,j,:]=color
+        return new_label
+
+    def showrevert_cp2file(self,cityscape,label,pred,experiment,epoch=0):
+        rev_label = self.revert_label2rgb(label)
+        rev_pred = self.revert_label2rgb(pred)
+        if cityscape.max()<1.1:
+            cityscape *= 255
+            cityscape+=128
+        if cityscape.shape[0] <4:
+            cityscape=cityscape.transpose(1, 2, 0).astype('float32')
+        cityscape = Image.fromarray(cityscape.astype(np.uint8))
+        rev_label = Image.fromarray(np.uint8(rev_label))
+        rev_pred= Image.fromarray(np.uint8(rev_pred))
+        fig, axes = plt.subplots(1, 3, figsize=(10, 5))
+        axes[0].imshow(cityscape)
+        axes[1].imshow(rev_label)
+        axes[2].imshow(rev_pred)
+        plt.savefig("{}/{}/{}.png".format('result',experiment,epoch))
+
+    def showrevert_cp2file_origin(self,cityscape,label,pred,experiment,epoch=0):
+        rev_label = self.revert_label2rgb(label)
+        rev_pred = self.revert_label2rgb(pred)
+        rev_pred_out = rev_pred
+        if cityscape.max()<1.1:
+            cityscape *= 255
+            cityscape+=128
+        if cityscape.shape[0] <4:
+            cityscape=cityscape.transpose(1, 2, 0).astype('float32')
+        cityscape = Image.fromarray(cityscape.astype(np.uint8))
+        rev_label = Image.fromarray(np.uint8(rev_label))
+        rev_pred= Image.fromarray(np.uint8(rev_pred))
+        fig, axes = plt.subplots(1, 3, figsize=(10, 5))
+        axes[0].imshow(cityscape)
+        axes[1].imshow(rev_label)
+        axes[2].imshow(rev_pred)
+        plt.savefig("{}/{}/cp_{}.png".format('result',experiment,epoch))
+        cv2.imwrite("{}/{}/{}.png".format('result',experiment,epoch),img=cv2.cvtColor(rev_pred_out.astype(np.uint8),cv2.COLOR_RGB2BGR))
 
 class KeyBoard(Dataset):
     def __init__(self,args,default_pairs = True):

@@ -65,7 +65,7 @@ def get_args():
     parser.add_argument('--device_id', type=int, default=0,
                         help='a number for choose device', dest='device_id')
     # model
-    parser.add_argument('--arch', '-a', metavar='ARCH', default='UNet',
+    parser.add_argument('--arch', '-a', metavar='ARCH', default='FCNNhub',
                         choices=ARCH_NAMES,
                         help='model architecture: ' +
                         ' | '.join(ARCH_NAMES) +
@@ -73,7 +73,7 @@ def get_args():
     parser.add_argument('--deep_supervision', default=False, type=str2bool)
     parser.add_argument('--input_channels', default=3, type=int,
                         help='input channels')
-    parser.add_argument('--num_classes', default=2, type=int,
+    parser.add_argument('--num_classes', default=4, type=int,
                         help='number of classes')
 
     # loss
@@ -90,18 +90,18 @@ def get_args():
     parser.add_argument('--loss_reduce', default=True, type=str2bool)
 
     # dataset
-    parser.add_argument('--dataset', metavar='DATASET', default='KeyBoard',
+    parser.add_argument('--dataset', metavar='DATASET', default='KeyBoard2',
                         choices=DATASET_NAMES,
                         help='model architecture: ' +
                         ' | '.join(DATASET_NAMES) +
                         ' (default: BasicDataset)')
-    parser.add_argument('--data_dir', default='./data/keyboard_480_480',
+    parser.add_argument('--data_dir', default='./data/dataset_4type_keyboard',
                         help='dataset_location_dir')
     parser.add_argument('--num_workers', default=0, type=int)
     #for dsb dataset compact
-    parser.add_argument('--input_w', default=360, type=int,
+    parser.add_argument('--input_w', default=480, type=int,
                         help='image width')
-    parser.add_argument('--input_h', default=360, type=int,
+    parser.add_argument('--input_h', default=483, type=int,
                         help='image height')
     parser.add_argument('--img_ext', default='.png',
                         help='image file extension')
