@@ -20,31 +20,36 @@ from utils.metrics import IOU,pixel_error,rand_error,dice_coeff,mIOU
 import utils.data_vis as vis
 from torch.optim import lr_scheduler
 import pandas as pd
-from utils.tools  import set_seed
+from utils.tools  import set_seed,Context
 try:
     from collections import OrderedDict
 except ImportError:
     OrderedDict = dict
 
+from utils.tools import weight_norm,weight_norm_init
+
 # options in config
 import archs
 import utils.savepoints as savepoints
 import losses
+import trainers
 import utils.dataset as datasets
 DATASET_NAMES = datasets.__all__
 ARCH_NAMES = archs.__all__
 SAVE_POINTS = savepoints.__all__
+TRAINERS_NAMES = trainers.__all__
 LOSS_NAMES = losses.__all__
 LOSS_NAMES.append('CrossEntropyLoss')
 LOSS_NAMES.append('BCEWithLogitsLoss')
 
+context=Context
 # BackPropagation methods
-optimizer =None
-scheduler =None
-criterion = None
-n_train=0
-n_val=0
-datamaker = None
+context.optimizer =None
+context.scheduler =None
+context.criterion = None
+context.n_train=0
+context.n_val=0
+context.datamaker = None
 
 
 def get_args():
@@ -70,10 +75,15 @@ def get_args():
                         help='model architecture: ' +
                         ' | '.join(ARCH_NAMES) +
                         ' (default: UNet)')
+    parser.add_argument('--trainer', default='CBLossTrainer',
+                        choices=TRAINERS_NAMES,
+                        help='trainer: ' +
+                        ' | '.join(TRAINERS_NAMES) +
+                        ' (default: STDTrainer)')
     parser.add_argument('--deep_supervision', default=False, type=str2bool)
-    parser.add_argument('--input_channels', default=3, type=int,
+    parser.add_argument('--input_channels', default=1, type=int,
                         help='input channels')
-    parser.add_argument('--num_classes', default=4, type=int,
+    parser.add_argument('--num_classes', default=2, type=int,
                         help='number of classes')
 
     # loss
@@ -82,20 +92,24 @@ def get_args():
                         help='loss: ' +
                         ' | '.join(LOSS_NAMES) +
                         ' (default: WeightBCELoss)')
-    parser.add_argument('--weight_loss', default='False', type=str2bool)
+    parser.add_argument('--weight_loss', default='true', type=str2bool)
     parser.add_argument('--weight_bias', type=float, default=1e-11)
-    parser.add_argument('--weight_type', default='none')
+    parser.add_argument('--weight_type', default='single_count')
     # hyper parameter for FilterLoss
     parser.add_argument('--tail_radio', type=float, default=0.05)
     parser.add_argument('--loss_reduce', default=True, type=str2bool)
+    
+    # for trainer
+    # cb loss 
+    parser.add_argument('--beta', type=float, default=0.9999)
 
     # dataset
-    parser.add_argument('--dataset', metavar='DATASET', default='KeyBoard2',
+    parser.add_argument('--dataset', metavar='DATASET', default='U373',
                         choices=DATASET_NAMES,
                         help='model architecture: ' +
                         ' | '.join(DATASET_NAMES) +
                         ' (default: BasicDataset)')
-    parser.add_argument('--data_dir', default='./data/dataset_4type_keyboard',
+    parser.add_argument('--data_dir', default='./data/U373',
                         help='dataset_location_dir')
     parser.add_argument('--num_workers', default=0, type=int)
     #for dsb dataset compact
@@ -166,183 +180,44 @@ def get_args():
 
     return parser.parse_args()
 
-def weight_norm(net,args):
-    if args.deep_supervision:
-        raise NotImplementedError("weight norm is not suitable for deep_supervision")
-    if net.final is None:
-        raise NotImplementedError("weight norm final is not found")
-    final = None
-    final_grad = None
-    for name,parameters in net.named_parameters():
-        #print(name,':',parameters.size())
-        if name == 'final.weight':
-            final=parameters.cpu().detach().numpy()
-            final_grad=parameters.grad.cpu().detach().numpy()
-    final = np.array(final)
-    final = np.reshape(final,(args.num_classes,-1))
-    final=np.linalg.norm(final, axis=1, keepdims=True)
-    final = np.reshape(final,(args.num_classes))
-
-    final_grad = np.array(final_grad)
-    final_grad = np.reshape(final_grad,(args.num_classes,-1))
-    final_grad=np.linalg.norm(final_grad, axis=1, keepdims=True)
-    final_grad = np.reshape(final_grad,(args.num_classes))
-    return final,final_grad
-
-def weight_norm_init(net,args):
-    if args.deep_supervision:
-        raise NotImplementedError("weight norm is not suitable for deep_supervision")
-    if net.final is None:
-        raise NotImplementedError("weight norm final is not found")
-    final = None
-    for name,parameters in net.named_parameters():
-        #print(name,':',parameters.size())
-        if name == 'final.weight':
-            final=parameters.cpu().detach().numpy()
-    final = np.array(final)
-    final = np.reshape(final,(args.num_classes,-1))
-    final=np.linalg.norm(final, axis=1, keepdims=True)
-    final = np.reshape(final,(args.num_classes))
-    return final
-
-
-def train_net(net,device,train_loader,args,epoch,nonlinear=softmax_helper):
-    net.train()
-    avg_meters = {'loss': AverageMeter()}
-    if not args.loss_reduce:
-        for idx in range(args.num_classes):
-            avg_meters['loss_{}'.format(idx)] = AverageMeter()
-
-    for idx in range(args.num_classes):# for init norm statistic
-        avg_meters['final_norm_{}'.format(idx)] = AverageMeter()
-        avg_meters['loss_gd_norm_{}'.format(idx)] = AverageMeter()
-
-    with tqdm(total=n_train, desc=f'Epoch {epoch + 1}/{args.epochs}', unit='img') as pbar:
-        iter =0
-        for batch in train_loader:
-            imgs = batch['image']
-            true_masks = batch['mask']
-            if 'weight' in batch:
-                weight = batch['weight']
-            else:
-                weight = None
-            assert imgs.shape[1] == net.n_channels, \
-                    f'Network has been defined with {net.n_channels} input channels, ' \
-                    f'but loaded images have {imgs.shape[1]} channels. Please check that ' \
-                    'the images are loaded correctly.'
-
-            imgs = imgs.to(device=device, dtype=torch.float32)
-            if weight is not None:
-                weight = weight.to(device=device, dtype=torch.float32)
-            mask_type = torch.float32 if net.n_classes == 1 else torch.long
-            true_masks = true_masks.to(device=device, dtype=mask_type)
-
-            masks_pred = net(imgs)
-            # compute output
-            if args.deep_supervision:
-                loss = 0
-                for output in masks_pred:
-                    if weight is not None and args.weight_loss:
-                        loss += criterion(output, true_masks,epoch,weight)
-                    else:
-                        loss += criterion(output, true_masks,epoch)
-                loss /= len(masks_pred)
-            else:
-                if weight is not None and args.weight_loss:
-                    loss = criterion(masks_pred, true_masks,epoch,weight)
-                else:
-                    loss = criterion(masks_pred, true_masks,epoch)
-
-            #print(loss)
-            if not args.loss_reduce:
-                avg_meters['loss'].update(loss.mean().cpu().item())
-                loss_np =  np.array([t.cpu().detach().numpy() for t in loss])
-                true_masks_np = np.array([t.cpu().detach().numpy() for t in true_masks] )
-                for idx in range(args.num_classes):
-                    tmp_loss = np.sum(loss_np*(true_masks_np==idx).astype(np.int))
-                    tmp_count = np.sum((true_masks_np==idx).astype(np.int))
-                    avg_meters['loss_{}'.format(idx)].update(tmp_loss/(tmp_count+1))#no zero div
-                loss = loss.mean()
-            else:
-                avg_meters['loss'].update(loss.cpu().item())
-
-            pbar.set_postfix(**{'train_loss': avg_meters['loss'].avg})
-            iter +=1
-            if args.accumulation_step==1:
-                optimizer.zero_grad()
-                loss.backward()
-                #----------------------------
-                weight_norms,loss_norms = weight_norm(net,args) #collect weight norm for final layer
-                for i in range(args.num_classes):
-                    avg_meters['final_norm_{}'.format(i)].update(weight_norms[i])
-                    avg_meters['loss_gd_norm_{}'.format(i)].update(loss_norms[i])
-                #----------------------------
-                nn.utils.clip_grad_value_(net.parameters(), 0.1)
-                optimizer.step()
-            else:
-                loss = loss/args.accumulation_step
-                loss.backward()
-
-                if(iter%args.accumulation_step)==0:
-                    # optimizer the net
-                    optimizer.step()        # update parameters of net
-                    optimizer.zero_grad()   # reset gradient
-
-            pbar.update(imgs.shape[0])
-            if iter >1000000:#这些代码是测试用的 可以删除掉
-                break
-        pbar.close()
-        redict = None
-        if not args.loss_reduce:
-            redict = OrderedDict([('loss', avg_meters['loss'].avg)])
-            for idx in range(args.num_classes):
-                redict['loss_{}'.format(idx)] = avg_meters['loss_{}'.format(idx)].avg
-                redict['final_norm_{}'.format(idx)] = avg_meters['final_norm_{}'.format(idx)].avg
-                redict['loss_gd_norm_{}'.format(idx)] = avg_meters['loss_gd_norm_{}'.format(idx)].avg
-        else:
-            redict = OrderedDict([('loss', avg_meters['loss'].avg)])
-            for idx in range(args.num_classes):
-                redict['final_norm_{}'.format(idx)] = avg_meters['final_norm_{}'.format(idx)].avg
-                redict['loss_gd_norm_{}'.format(idx)] = avg_meters['loss_gd_norm_{}'.format(idx)].avg
-    return redict
-
-def eval_net(net, device, val_loader ,args,epoch,nonlinear=softmax_helper,miou_split=True):
+    
+def eval_net(context,epoch,miou_split=True):
     """Evaluation without the densecrf with the dice coefficient"""
-    if net.n_classes > 1:
+    if context.net.n_classes > 1:
         avg_meters = {'loss': AverageMeter(),'miou': AverageMeter()}
         if miou_split:# show detail for iou of each class
-            for item in datamaker.class_names:
+            for item in context.datamaker.class_names:
                 avg_meters["iou_{}".format(item)] = AverageMeter()
     else:
         avg_meters = {'loss': AverageMeter(),'iou': AverageMeter(),'pixel_error': AverageMeter(),'rand_error': AverageMeter(),'dice_coeff':AverageMeter()}
 
-    net.eval()
-    mask_type = torch.float32 if net.n_classes == 1 else torch.long
+    context.net.eval()
+    mask_type = torch.float32 if context.net.n_classes == 1 else torch.long
     batch_count = 0
 
-    with tqdm(total=n_val, desc='Validation round') as pbar:
+    with tqdm(total=context.n_val, desc='Validation round') as pbar:
         show=False
-        for batch  in val_loader:
+        for batch  in context.val_loader:
             imgs = batch['image']
             true_masks = batch['mask']
             if 'weight' in batch:
                 weight = batch['weight']
             else:
                 weight = None
-            imgs = imgs.to(device=device, dtype=torch.float32)
+            imgs = imgs.to(device=context.device, dtype=torch.float32)
             if weight is not None:
-                weight = weight.to(device=device, dtype=torch.float32)
-            true_masks = true_masks.to(device=device, dtype=mask_type)
+                weight = weight.to(device=context.device, dtype=torch.float32)
+            true_masks = true_masks.to(device=context.device, dtype=mask_type)
 
             with torch.no_grad():
-                mask_pred = net(imgs)
+                mask_pred = context.net(imgs)
 
-                if args.deep_supervision: #choose final
+                if context.args.deep_supervision: #choose final
                     mask_pred = mask_pred[-1]
 
-                if net.n_classes > 1:
-                    loss = criterion(mask_pred, true_masks,epoch)
-                    if not args.loss_reduce:
+                if context.net.n_classes > 1:
+                    loss = context.criterion(mask_pred, true_masks,epoch)
+                    if not context.args.loss_reduce:
                         loss = loss.mean()
                     avg_meters['loss'].update(loss.cpu().item())
                     pbar.set_postfix(**{'val_loss': avg_meters['loss'].avg})
@@ -352,22 +227,22 @@ def eval_net(net, device, val_loader ,args,epoch,nonlinear=softmax_helper,miou_s
                         img = imgs[i].cpu().detach().numpy()
                         s_pred = np.argmax(s_pred,axis=0)
                         if not show:
-                            datamaker.showrevert_cp2file(img,s_true_mask,s_pred,args.experiment,epoch)
+                            context.datamaker.showrevert_cp2file(img,s_true_mask,s_pred,context.args.experiment,epoch)
                             show = True
-                        miou,statisic= mIOU(s_pred,s_true_mask,net.n_classes)
+                        miou,statisic= mIOU(s_pred,s_true_mask,context.net.n_classes)
                         avg_meters['miou'].update(miou)
                         if miou_split:
                             for key in statisic:
                                 iou = (statisic[key]['tp']*1.0) / (statisic[key]['tp']+statisic[key]['fp']+statisic[key]['fn']+(-1e-5))
-                                avg_meters["iou_{}".format(datamaker.class_names[key])].update(iou)
+                                avg_meters["iou_{}".format(context.datamaker.class_names[key])].update(iou)
                 else:
                     pred = torch.sigmoid(mask_pred)
                     pred_int = (pred > 0.5).int()
                     pred = (pred > 0.5).float()
-                    if args.weight_loss:
-                        loss = criterion(mask_pred, true_masks,epoch,weight)
+                    if context.args.weight_loss:
+                        loss = context.criterion(mask_pred, true_masks,epoch,weight)
                     else:
-                        loss = criterion(mask_pred, true_masks,epoch)
+                        loss = context.criterion(mask_pred, true_masks,epoch)
                     avg_meters['loss'].update(loss.cpu().item())
                     # for i in range(imgs.shape[0]):
                     for i in range(imgs.shape[0]):
@@ -375,9 +250,9 @@ def eval_net(net, device, val_loader ,args,epoch,nonlinear=softmax_helper,miou_s
                         s_pred = pred_int[i].cpu().detach().numpy()
                         if not show:# once for a epoch
                             if i==0:
-                                vis.visualize_pred_to_file("./result/{}/epoch:{}_{}_{}.png".format(args.experiment,epoch,batch_count,i),imgs[i].cpu().detach().numpy(), s_true_mask, s_pred , title1="Original", title2="True", title3="Pred[0]")
+                                vis.visualize_pred_to_file("./result/{}/epoch:{}_{}_{}.png".format(context.args.experiment,epoch,batch_count,i),imgs[i].cpu().detach().numpy(), s_true_mask, s_pred , title1="Original", title2="True", title3="Pred[0]")
                                 stack = 'val_loss:{},iou:{},pixel_error:{},rand_error:{},dice_coeff:{}'.format(loss.cpu().item(),pixel_error(s_true_mask,s_pred),IOU(s_true_mask,s_pred),rand_error(s_true_mask,s_pred),dice_coeff(pred, true_masks).item())
-                                with open("./result/{}/epoch:{}_{}_{}.txt".format(args.experiment,epoch,batch_count,i),'w') as f:    #设置文件对象
+                                with open("./result/{}/epoch:{}_{}_{}.txt".format(context.args.experiment,epoch,batch_count,i),'w') as f:    #设置文件对象
                                     f.write(stack)
                             show = True
                         avg_meters['pixel_error'].update(pixel_error(s_true_mask,s_pred))
@@ -389,13 +264,13 @@ def eval_net(net, device, val_loader ,args,epoch,nonlinear=softmax_helper,miou_s
             batch_count+=1
         pbar.close()
 
-    net.train()
+    context.net.train()
     ret = OrderedDict()
-    if net.n_classes >1:
+    if context.net.n_classes >1:
         ret['loss'] = avg_meters['loss'].avg
         ret['mIOU'] = avg_meters['miou'].avg
         if miou_split:# show detail for iou of each class
-            for item in datamaker.class_names:
+            for item in context.datamaker.class_names:
                 ret["iou_{}".format(item)] = avg_meters["iou_{}".format(item)].avg
     else:
         ret['loss'] = avg_meters['loss'].avg
@@ -448,99 +323,101 @@ def get_criterion(args,model):
 #main entry
 if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
-    args = get_args()
-    if args.device == 'cuda':
-        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-        torch.cuda.set_device(args.device_id)
+    context.args = get_args()
+    if context.args.device == 'cuda':
+        context.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        torch.cuda.set_device(context.args.device_id)
     else:
-        device = torch.device('cpu')
-    logging.info(f'Using device {device}')
+        context.device = torch.device('cpu')
+    logging.info(f'Using device {context.device}')
     checkpoint = None
     load_from = None
-    if args.load:
-        load_from = args.load #备份加载位置，因为args会被替换
-        checkpoint = torch.load(args.load, map_location=device)
+    if context.args.load:
+        load_from = context.args.load #备份加载位置，因为args会被替换
+        checkpoint = torch.load(context.args.load, map_location=context.device)
         if 'args' in checkpoint:#兼容设置：因为旧版的部分运行保存没有保存参数args，所以有些读取是没有这个参数的 以免报错
-            old_args = args
-            args = checkpoint['args']
+            old_args = context.args
+            context.args = checkpoint['args']
             if len(old_args.no_replace) != 0:
                 keeps = old_args.no_replace.split(',')
                 for keep in keeps:
-                    args.__dict__[keep] = old_args.__dict__[keep]     
+                    context.args.__dict__[keep] = old_args.__dict__[keep]     
             logging.info(f'''reload training:
-            args:          {args}
+            args:          {context.args}
             ''')
     #set seed
-    set_seed(args.seed)
+    set_seed(context.args.seed)
     # Change here to adapt to your data
     # n_channels=3 for RGB images
     # n_classes is the number of probabilities you want to get per pixel
     #   - For 1 class and background, use n_classes=1
     #   - For 2 classes, use n_classes=1
     #   - For N > 2 classes, use n_classes=N
-    net = archs.__dict__[args.arch](args)
-    optimizer = get_optimizer(args,net)
-    scheduler = get_scheduler(args,optimizer)
-    criterion = get_criterion(args,net)
+    context.net = archs.__dict__[context.args.arch](context.args)
+    context.optimizer = get_optimizer(context.args,context.net)
+    context.scheduler = get_scheduler(context.args,context.optimizer)
+    context.criterion = get_criterion(context.args,context.net)
     start_epoch =0
+    trainer = trainers.__dict__[context.args.trainer]()
+
 
     #keep initial net weight norm info here
-    weight_norms = weight_norm_init(net,args)
+    weight_norms = weight_norm_init(context.net,context.args)
     init_norms = OrderedDict()
-    for idx in range(args.num_classes):
+    for idx in range(context.args.num_classes):
         init_norms['final_norm_{}'.format(idx)] = weight_norms[idx]
 
     #mkdirs for each experiment
     try:
-        os.mkdir('./result/{}'.format(args.experiment))
+        os.mkdir('./result/{}'.format(context.args.experiment))
     except OSError:
         pass
-    print(net)
+    print(context.net)
     logging.info(f'Network:\n'
-                 f'\t{args.input_channels} input channels\n'
-                 f'\t{args.num_classes} output channels (classes)\n')
+                 f'\t{context.args.input_channels} input channels\n'
+                 f'\t{context.args.num_classes} output channels (classes)\n')
     if load_from is not None:
         if 'args' in checkpoint:#新版保存了 网络状态，优化器状态等，旧版没有，作兼容
-            net.load_state_dict(checkpoint['net'])
-            if args.continnue:
-                optimizer.load_state_dict(checkpoint['optimizer'])
-                for state in optimizer.state.values():
+            context.net.load_state_dict(checkpoint['net'])
+            if context.args.continnue:
+                context.optimizer.load_state_dict(checkpoint['optimizer'])
+                for state in context.optimizer.state.values():
                     for k, v in state.items():
                         if torch.is_tensor(v):
                             state[k] = v.cuda()
                 start_epoch = checkpoint['epoch']
             logging.info(f'Model loaded from {load_from} in epoch {start_epoch}')
         else:
-            net.load_state_dict(checkpoint)
+            context.net.load_state_dict(checkpoint)
 
-    net.to(device=device)
+    context.net.to(device=context.device)
 
     # faster convolutions, but more memory
     # cudnn.benchmark = True
     # init data set here:
     #global datamaker
-    datamaker = datasets.__dict__[args.dataset](args)
-    train_loader,val_loader,n_train,n_val = datamaker(args)
+    context.datamaker = datasets.__dict__[context.args.dataset](context.args)
+    context.train_loader,context.val_loader,context.n_train,context.n_val =context.datamaker(context.args)
     logging.info(f'''Starting training:
-        args:          {args}
+        args:          {context.args}
     ''')
 
     #for csv
     log = OrderedDict()
-    writer = SummaryWriter(comment=f'_ex.{args.experiment}_{args.optimizer}_LR_{args.lr}_BS_{args.batchsize}_model_{args.arch}')
-    savepoint=savepoints.__dict__[args.savepoint](args)
+    writer = SummaryWriter(comment=f'_ex.{context.args.experiment}_{context.args.optimizer}_LR_{context.args.lr}_BS_{context.args.batchsize}_model_{context.args.arch}')
+    savepoint=savepoints.__dict__[context.args.savepoint](context.args)
     try:
-        rounds = range(start_epoch,args.epochs)
+        rounds = range(start_epoch,context.args.epochs)
         for epoch in rounds:
             # train
-            train_log = train_net(net=net,device=device,train_loader=train_loader,epoch=epoch,args=args)
+            train_log = trainer(context =context,epoch = epoch)
             #validate
-            val_log = eval_net(net=net,device=device,val_loader=val_loader,epoch=epoch,args=args)
+            val_log = eval_net(context = context,epoch=epoch)
 
-            if scheduler is not None and args.scheduler == 'ReduceLROnPlateau':
-                scheduler.step(val_log['loss'])
+            if context.scheduler is not None and context.args.scheduler == 'ReduceLROnPlateau':
+                context.scheduler.step(val_log['loss'])
             else:
-                scheduler.step()
+                context.scheduler.step()
 
             if 'epoch' not in log:
                 log['epoch'] = []
@@ -555,12 +432,12 @@ if __name__ == '__main__':
                     log['{}_{}'.format('train',m_key)]=[]
                 log['{}_{}'.format('train',m_key)].append(train_log[m_key])
 
-            for tag, value in net.named_parameters():
+            for tag, value in context.net.named_parameters():
                 tag = tag.replace('.', '/')
                 writer.add_histogram('weights/' + tag, value.data.cpu().numpy(), (epoch+1))
                 writer.add_histogram('grads/' + tag, value.grad.data.cpu().numpy(), (epoch+1))
             logging.info('==================================================>')
-            if net.n_classes > 1:
+            if context.net.n_classes > 1:
                 for m_key in val_log:
                     scale = '{}/test'.format(m_key)
                     logging.info('{} : {}'.format(m_key,val_log[m_key]))
@@ -579,24 +456,24 @@ if __name__ == '__main__':
                         log['{}_{}'.format('val',m_key)]=[]
                     log['{}_{}'.format('val',m_key)].append(val_log[m_key])
             logging.info('==================================================>\n')
-            writer.add_scalar('learning_rate', optimizer.param_groups[0]['lr'], (epoch+1))
+            writer.add_scalar('learning_rate', context.optimizer.param_groups[0]['lr'], (epoch+1))
 
             #force to save check point at last epoch
-            if args.force_save_last and epoch == args.epochs-1:
-                state = {'args':args,'net':net.state_dict(), 'optimizer':optimizer.state_dict(), 'epoch':epoch}
-                torch.save(state,args.dir_checkpoint + f'CP_ex.{args.experiment}_epoch{epoch + 1}_{args.arch}_{args.dataset}.pth')
+            if context.args.force_save_last and epoch == context.args.epochs-1:
+                state = {'args':context.args,'net':context.net.state_dict(), 'optimizer':context.optimizer.state_dict(), 'epoch':epoch}
+                torch.save(state,context.args.dir_checkpoint + f'CP_ex.{context.args.experiment}_epoch{epoch + 1}_{context.args.arch}_{context.args.dataset}.pth')
                 logging.info(f'Checkpoint {epoch + 1} saved !')
             # save check point by condition
-            if args.save_check_point:
-                if args.save_mode == 'by_best':
+            if context.args.save_check_point:
+                if context.args.save_mode == 'by_best':
                     if savepoint.is_new_best(val_log=val_log):
                         try:
-                            os.mkdir(args.dir_checkpoint)
+                            os.mkdir(context.args.dir_checkpoint)
                             logging.info('Created checkpoint directory')
                         except OSError:
                             pass
-                        state = {'args':args,'net':net.state_dict(), 'optimizer':optimizer.state_dict(), 'epoch':epoch}
-                        torch.save(state,args.dir_checkpoint + f'CP_ex.{args.experiment}_epoch{epoch + 1}_{args.arch}_{args.dataset}.pth')
+                        state = {'args':context.args,'net':context.net.state_dict(), 'optimizer':context.optimizer.state_dict(), 'epoch':epoch}
+                        torch.save(state,context.args.dir_checkpoint + f'CP_ex.{context.args.experiment}_epoch{epoch + 1}_{context.args.arch}_{context.args.dataset}.pth')
                         logging.info(f'Checkpoint {epoch + 1} saved !')
                         # for csv
                         if 'is_best' not in log:
@@ -608,12 +485,12 @@ if __name__ == '__main__':
                         log['is_best'] .append(0)
                 else:
                     try:
-                        os.mkdir(args.dir_checkpoint)
+                        os.mkdir(context.args.dir_checkpoint)
                         logging.info('Created checkpoint directory')
                     except OSError:
                         pass
-                    state = {'args':args,'net':net.state_dict(), 'optimizer':optimizer.state_dict(), 'epoch':epoch}
-                    torch.save(state,args.dir_checkpoint + f'CP_ex.{args.experiment}_epoch{epoch + 1}_{args.arch}_{args.dataset}.pth')
+                    state = {'args':context.args,'net':context.net.state_dict(), 'optimizer':context.optimizer.state_dict(), 'epoch':epoch}
+                    torch.save(state,context.args.dir_checkpoint + f'CP_ex.{context.args.experiment}_epoch{epoch + 1}_{context.args.arch}_{context.args.dataset}.pth')
                     logging.info(f'Checkpoint {epoch + 1} saved !')
 
         # saving initial weight norm info to final log files
@@ -624,13 +501,13 @@ if __name__ == '__main__':
                 init_log['{}_{}'.format('train',m_key)]=[]
             init_log['{}_{}'.format('train',m_key)].append(init_norms[m_key])
         #for csv
-        pd.DataFrame(init_log).to_csv('./result/{}_init.csv'.format(args.experiment),index=None)
-        pd.DataFrame(log).to_csv('./result/{}.csv'.format(args.experiment),index=None)
+        pd.DataFrame(init_log).to_csv('./result/{}_init.csv'.format(context.args.experiment),index=None)
+        pd.DataFrame(log).to_csv('./result/{}.csv'.format(context.args.experiment),index=None)
         writer.close()
     except KeyboardInterrupt:
-        if args.save_check_point:
-            state = {'args':args,'net':net.state_dict(), 'optimizer':optimizer.state_dict(), 'epoch':epoch}
-            torch.save(state, args.dir_checkpoint+f'INTERRUPTED_ex.{args.experiment}_epoch{epoch + 1}_{args.arch}_{args.dataset}.pth')
+        if context.args.save_check_point:
+            state = {'args':context.args,'net':context.net.state_dict(), 'optimizer':context.optimizer.state_dict(), 'epoch':epoch}
+            torch.save(state, context.args.dir_checkpoint+f'INTERRUPTED_ex.{context.args.experiment}_epoch{epoch + 1}_{context.args.arch}_{context.args.dataset}.pth')
             logging.info('Saved interrupt in {} epoch'.format(epoch))
         writer.close()
         try:

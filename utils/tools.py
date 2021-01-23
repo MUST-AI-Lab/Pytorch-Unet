@@ -144,3 +144,54 @@ def sample_array(file_name):
         line = f.readline()
     f.close()
     return ret
+
+#用于在训练时上下文传递的类
+class Context:
+    def __init__(self):
+        self.args = None
+        self.net =None
+        self.optimizer = None
+        self.schduler = None
+        self.epoch = None
+        self.nonlinear = None
+        self.train_loader = None
+        self.device=None
+
+def weight_norm(net,args):
+    if args.deep_supervision:
+        raise NotImplementedError("weight norm is not suitable for deep_supervision")
+    if net.final is None:
+        raise NotImplementedError("weight norm final is not found")
+    final = None
+    final_grad = None
+    for name,parameters in net.named_parameters():
+        #print(name,':',parameters.size())
+        if name == 'final.weight':
+            final=parameters.cpu().detach().numpy()
+            final_grad=parameters.grad.cpu().detach().numpy()
+    final = np.array(final)
+    final = np.reshape(final,(args.num_classes,-1))
+    final=np.linalg.norm(final, axis=1, keepdims=True)
+    final = np.reshape(final,(args.num_classes))
+
+    final_grad = np.array(final_grad)
+    final_grad = np.reshape(final_grad,(args.num_classes,-1))
+    final_grad=np.linalg.norm(final_grad, axis=1, keepdims=True)
+    final_grad = np.reshape(final_grad,(args.num_classes))
+    return final,final_grad
+
+def weight_norm_init(net,args):
+    if args.deep_supervision:
+        raise NotImplementedError("weight norm is not suitable for deep_supervision")
+    if net.final is None:
+        raise NotImplementedError("weight norm final is not found")
+    final = None
+    for name,parameters in net.named_parameters():
+        #print(name,':',parameters.size())
+        if name == 'final.weight':
+            final=parameters.cpu().detach().numpy()
+    final = np.array(final)
+    final = np.reshape(final,(args.num_classes,-1))
+    final=np.linalg.norm(final, axis=1, keepdims=True)
+    final = np.reshape(final,(args.num_classes))
+    return final

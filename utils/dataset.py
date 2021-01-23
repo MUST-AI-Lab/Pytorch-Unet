@@ -21,12 +21,13 @@ from sklearn.model_selection import train_test_split
 from torch.utils.data import DataLoader, random_split
 from utils.weights_collate import default_collate_with_weight,label2_baseline_weight_by_prior,label2distribute,distribution2tensor,label_count
 import pandas as pd
+from utils.mic.dataset_helper import load_from_single_page_tiff
 
-__all__ = ['BasicDataset', 'CarvanaDataset','MICDataset','DSBDataset','CityScapesDataset','PascalDataset','Cam2007DatasetV2','KeyBoard','KeyBoard2']
+__all__ = ['BasicDataset', 'CarvanaDataset','MICDataset','HeLa','U373','DSBDataset','CityScapesDataset','PascalDataset','Cam2007DatasetV2','KeyBoard','KeyBoard2']
 
 
 class SegDataSet_T(Dataset):
-    def __init__(self,args,default_pairs = True):
+    def __init__(self,args):
         self.data_dir =args.data_dir
         self.args = args
         self.cmap = self.labelcolormap(args.num_classes)
@@ -103,37 +104,60 @@ class SegDataSet_T(Dataset):
                 new_label[i,j,:]=color
         return new_label
 
-    def showrevert_cp2file(self,cityscape,label,pred,experiment,epoch=0):
+    def showrevert_cp2file(self,image,label,pred,experiment,epoch=0):
+        gray_img = False
         rev_label = self.revert_label2rgb(label)
         rev_pred = self.revert_label2rgb(pred)
-        if cityscape.max()<1.1:
-            cityscape *= 255
-            cityscape+=128
-        if cityscape.shape[0] <4:
-            cityscape=cityscape.transpose(1, 2, 0).astype('float32')
-        cityscape = Image.fromarray(cityscape.astype(np.uint8))
+        if image.max()<1.1:
+            image *= 255
+        if image.min()<0:    
+            image+=128
+        if image.shape[0] == 3:
+            image=image.transpose(1, 2, 0).astype('float32')
+        if image.shape[0] == 1:
+            image=np. squeeze(image,axis=0)    
+            gray_img=True
+        if not gray_img:
+            image = Image.fromarray(image.astype(np.uint8))
+        else:
+            image=Image.fromarray(image.astype(np.uint8),mode='L')
         rev_label = Image.fromarray(np.uint8(rev_label))
         rev_pred= Image.fromarray(np.uint8(rev_pred))
         fig, axes = plt.subplots(1, 3, figsize=(10, 5))
-        axes[0].imshow(cityscape)
+        if gray_img:
+            axes[0].imshow(image,cmap ='gray')
+        else:
+            axes[0].imshow(image)
         axes[1].imshow(rev_label)
         axes[2].imshow(rev_pred)
         plt.savefig("{}/{}/{}.png".format('result',experiment,epoch))
 
-    def showrevert_cp2file_origin(self,cityscape,label,pred,experiment,epoch=0):
+    def showrevert_cp2file_origin(self,image,label,pred,experiment,epoch=0):
+        gray_img=False
         rev_label = self.revert_label2rgb(label)
         rev_pred = self.revert_label2rgb(pred)
         rev_pred_out = rev_pred
-        if cityscape.max()<1.1:
-            cityscape *= 255
-            cityscape+=128
-        if cityscape.shape[0] <4:
-            cityscape=cityscape.transpose(1, 2, 0).astype('float32')
-        cityscape = Image.fromarray(cityscape.astype(np.uint8))
+        if image.max()<1.1:
+            image *= 255
+        if image.min()<0:    
+            image+=128
+        if image.shape[0] == 3:
+            image=image.transpose(1, 2, 0).astype('float32')
+        if image.shape[0] == 1:
+            image=np. squeeze(image,axis=0)
+            gray_img=True
+        if not gray_img:
+            image = Image.fromarray(image.astype(np.uint8))
+        else:
+            image=Image.fromarray(image.astype(np.uint8),mode='L')
+        
         rev_label = Image.fromarray(np.uint8(rev_label))
         rev_pred= Image.fromarray(np.uint8(rev_pred))
         fig, axes = plt.subplots(1, 3, figsize=(10, 5))
-        axes[0].imshow(cityscape)
+        if gray_img:
+            axes[0].imshow(image,cmap ='gray')
+        else:
+            axes[0].imshow(image)
         axes[1].imshow(rev_label)
         axes[2].imshow(rev_pred)
         plt.savefig("{}/{}/cp_{}.png".format('result',experiment,epoch))
@@ -141,9 +165,13 @@ class SegDataSet_T(Dataset):
 
 
     def __getitem__(self, idx):
-        cityscape,label,id = self.pairs[idx]
-        img = cityscape.astype('float32') / 255
-        img = cityscape.transpose(2, 0, 1).astype('float32')
+        image,label,id = self.pairs[idx]
+        #pre_process
+        img = (image.astype('float32')-128) / 255
+        if len(img.shape)==3: #switch channel to first
+            img = image.transpose(2, 0, 1).astype('float32')
+        else:# gray channel is 1
+            img = np.expand_dims(image,axis=0)
         if self.args.weight_type == 'global_test_weight':
             weight=np.zeros_like(label).astype(np.float)
             max_di = np.max(self.summary_factor)
@@ -242,24 +270,6 @@ class SegDataSet_T(Dataset):
                     'mask': torch.from_numpy(label).type(torch.IntTensor)
             }
 
-    # get pair from origin picture
-    def get_origin_pairs(self,img="IMG",GT="GT",imshow=False):
-        self.pairs = []
-        print("Loading data from filesystem...")
-        self.data_fns = os.listdir('{}/{}'.format(self.data_dir,img))
-        print("There are {} pictures.".format(len(self.data_fns)))
-        for ids in tqdm(self.data_fns):
-            ids = ids[:-4]
-            image =  Image.open('{}/{}/{}.png'.format(self.data_dir,img,ids )).convert("RGB")
-            label = Image.open('{}/{}/{}_L.png'.format(self.data_dir,GT,ids )).convert("RGB")
-            image = np.array(image)
-            new_label = np.array(label)
-            new_label = self.handle_label(new_label)
-            if imshow:
-                self.showrevert_cp2(image,label,new_label)
-            # handle img format
-            self.pairs.append((image,new_label))
-
     # in preprocess, save img to files
     def pairs2files(self,out_path,img="IMG",GT="GT"):
         i =0
@@ -274,8 +284,8 @@ class SegDataSet_T(Dataset):
         total = np.prod(label.shape)
         factor = np.zeros(len(self.class_names), dtype='float32')
         for i in range(len(self.class_names)):
-                state = (label==i).astype(np.int)
-                factor[i] = np.sum(state)/total
+            state = (label==i).astype(np.int)
+            factor[i] = np.sum(state)/total
         max_di = np.max(factor)
         e = 2.7182
         for i in range(len(self.class_names)):
@@ -367,8 +377,8 @@ class SegDataSet_T(Dataset):
         return ''.join([str((n >> y) & 1) for y in range(count-1, -1, -1)])
 
 class KeyBoard2(SegDataSet_T):
-    def __init__(self,args,default_pairs = True):
-        SegDataSet_T.__init__(self,args,default_pairs)
+    def __init__(self,args):
+        SegDataSet_T.__init__(self,args)
     
     def labelcolormap(self,N):
         cmap = np.zeros((N, 3), dtype = np.uint8)
@@ -419,8 +429,8 @@ class KeyBoard2(SegDataSet_T):
             self.pairs.append((image,label,ids))
       
 class KeyBoard(SegDataSet_T):
-    def __init__(self,args,default_pairs = True):
-        SegDataSet_T.__init__(self,args,default_pairs)
+    def __init__(self,args):
+        SegDataSet_T.__init__(self,args)
         
     def labelcolormap(self,N):
         cmap = np.zeros((N, 3), dtype = np.uint8)
@@ -469,8 +479,8 @@ class KeyBoard(SegDataSet_T):
             self.pairs.append((image,label,ids))
     
 class Cam2007DatasetV2(SegDataSet_T):
-    def __init__(self,args,default_pairs = True):
-        SegDataSet_T.__init__(self,args,default_pairs)
+    def __init__(self,args):
+        SegDataSet_T.__init__(self,args)
          
     def get_classes_names(self):
         return [
@@ -549,7 +559,113 @@ class Cam2007DatasetV2(SegDataSet_T):
                 plt.show()
             self.pairs.append((image,label,ids))
 
+class HeLa(SegDataSet_T):
+    def __init__(self,args):
+        assert args.target_set is not None,"target_set should not None"
+        assert args.data_dir is not None,"data_path should not None"
+        SegDataSet_T.__init__(self,args)
+        self.target_set = args.target_set
+        self.scale = args.scale
+        self.vis = False
+        helper.DATA_PATH=args.data_dir
+    
+    def get_classes_names(self):
+        return ["Background", "Cell"]
 
+    def __call__(self,args):
+        train = HeLa(args)
+        train.get_pairs("train.txt")
+        train.get_disturibution()
+        val = HeLa(args)
+        val.get_pairs("test.txt")
+        val.get_disturibution()
+        n_train = len(train)
+        n_val = len(val)
+        train_loader = DataLoader(train, batch_size=args.batchsize, shuffle=False, num_workers=args.num_workers, pin_memory=True,collate_fn=default_collate_with_weight)
+        val_loader = DataLoader(val, batch_size=args.batchsize, shuffle=False, num_workers=args.num_workers, pin_memory=True,collate_fn=default_collate_with_weight)
+        return train_loader,val_loader,n_train,n_val
+
+    def labelcolormap(self,N):
+        cmap = np.zeros((N, 3), dtype = np.uint8)
+        cmap[0] = [0,0,0]
+        cmap[1] = [255,255,255]
+        return cmap
+
+    def get_pairs(self,cfg,img="IMG",GT="GT",imshow=False):
+        instance=False 
+        self.pairs = []
+        print("Loading data from filesystem...")
+        self.data_fns = sample_array("{}/{}".format(self.data_dir,cfg))
+        print("There are {} pictures.".format(len(self.data_fns)))
+        print("files name arrays are {}".format(self.data_fns))
+        for ids in self.data_fns:
+            image = load_from_single_page_tiff('{}/{}/t{}.tif'.format(self.data_dir,img,ids ))
+            label = load_from_single_page_tiff('{}/{}/man_seg{}.tif'.format(self.data_dir,GT,ids ))
+            if not instance:
+                label = (label > 0).astype(np.int)
+            mask = np.unique(label)
+            if imshow:
+                rev_label = self.revert_label2rgb(label)
+                image,rev_label = Image.fromarray(image), Image.fromarray(np.uint8(rev_label))
+                fig, axes = plt.subplots(1, 2, figsize=(10, 5))
+                axes[0].imshow(image)
+                axes[1].imshow(rev_label)
+                plt.show()
+            self.pairs.append((image,label,ids))
+
+class U373(SegDataSet_T):
+    def __init__(self,args):
+        assert args.target_set is not None,"target_set should not None"
+        assert args.data_dir is not None,"data_path should not None"
+        SegDataSet_T.__init__(self,args)
+        self.target_set = args.target_set
+        self.scale = args.scale
+        self.vis = False
+        helper.DATA_PATH=args.data_dir
+    
+    def get_classes_names(self):
+        return ["Background", "Cell"]
+
+    def __call__(self,args):
+        train = HeLa(args)
+        train.get_pairs("train.txt")
+        train.get_disturibution()
+        val = HeLa(args)
+        val.get_pairs("test.txt")
+        val.get_disturibution()
+        n_train = len(train)
+        n_val = len(val)
+        train_loader = DataLoader(train, batch_size=args.batchsize, shuffle=False, num_workers=args.num_workers, pin_memory=True,collate_fn=default_collate_with_weight)
+        val_loader = DataLoader(val, batch_size=args.batchsize, shuffle=False, num_workers=args.num_workers, pin_memory=True,collate_fn=default_collate_with_weight)
+        return train_loader,val_loader,n_train,n_val
+
+    def labelcolormap(self,N):
+        cmap = np.zeros((N, 3), dtype = np.uint8)
+        cmap[0] = [0,0,0]
+        cmap[1] = [255,255,255]
+        return cmap
+
+    def get_pairs(self,cfg,img="IMG",GT="GT",imshow=False):
+        instance=False 
+        self.pairs = []
+        print("Loading data from filesystem...")
+        self.data_fns = sample_array("{}/{}".format(self.data_dir,cfg))
+        print("There are {} pictures.".format(len(self.data_fns)))
+        print("files name arrays are {}".format(self.data_fns))
+        for ids in self.data_fns:
+            image = load_from_single_page_tiff('{}/{}/t{}.tif'.format(self.data_dir,img,ids ))
+            label = load_from_single_page_tiff('{}/{}/man_seg{}.tif'.format(self.data_dir,GT,ids ))
+            if not instance:
+                label = (label > 0).astype(np.int)
+            mask = np.unique(label)
+            if imshow:
+                rev_label = self.revert_label2rgb(label)
+                image,rev_label = Image.fromarray(image), Image.fromarray(np.uint8(rev_label))
+                fig, axes = plt.subplots(1, 2, figsize=(10, 5))
+                axes[0].imshow(image)
+                axes[1].imshow(rev_label)
+                plt.show()
+            self.pairs.append((image,label,ids))
 
 #=====================================
 class DSBDataset(torch.utils.data.Dataset):
