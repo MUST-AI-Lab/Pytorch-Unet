@@ -668,6 +668,8 @@ class U373(SegDataSet_T):
             self.pairs.append((image,label,ids))
 
 #=====================================
+# old version: incompatibility 
+#=====================================
 class DSBDataset(torch.utils.data.Dataset):
     def __init__(self,args, transform=None):
         """

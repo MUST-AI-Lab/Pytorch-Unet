@@ -8,16 +8,19 @@ csv_data = pd.read_csv(file_name)
 print(csv_data.head())
 total_epoch =10
 epochs = range(0,total_epoch)
-categorys=32
+categorys=2
 
-idx = [17, 4, 26, 21, 19, 9, 2, 10, 5, 31, 30, 14, 16, 24, 8, 27, 12, 29, 7, 20, 1, 6, 11, 0, 3, 13, 15, 18, 22, 23, 25, 28]
-class_names = [
-            "Animal", "Archway","Bicyclist","Bridge","Building","Car","CartLuggagePram",
-            "Child","Column_Pole","Fence","LaneMkgsDriv","LaneMkgsNonDriv","Misc_Text","MotorcycleScooter",
-            "OtherMoving","ParkingBlock","Pedestrian","Road","RoadShoulder","Sidewalk","SignSymbol",
-            "Sky","SUVPickupTruck","TrafficCone","TrafficLight","Train","Tree","Truck_Bus","Tunnel",
-            "VegetationMisc","Void","Wall"
-        ]
+idx=[0,1]
+class_names=["background","cell"]
+
+# idx = [17, 4, 26, 21, 19, 9, 2, 10, 5, 31, 30, 14, 16, 24, 8, 27, 12, 29, 7, 20, 1, 6, 11, 0, 3, 13, 15, 18, 22, 23, 25, 28]
+# class_names = [
+#             "Animal", "Archway","Bicyclist","Bridge","Building","Car","CartLuggagePram",
+#             "Child","Column_Pole","Fence","LaneMkgsDriv","LaneMkgsNonDriv","Misc_Text","MotorcycleScooter",
+#             "OtherMoving","ParkingBlock","Pedestrian","Road","RoadShoulder","Sidewalk","SignSymbol",
+#             "Sky","SUVPickupTruck","TrafficCone","TrafficLight","Train","Tree","Truck_Bus","Tunnel",
+#             "VegetationMisc","Void","Wall"
+#         ]
 
 #for each
 for cate in range(categorys):

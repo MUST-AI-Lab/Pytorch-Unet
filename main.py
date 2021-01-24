@@ -81,9 +81,9 @@ def get_args():
                         ' | '.join(TRAINERS_NAMES) +
                         ' (default: STDTrainer)')
     parser.add_argument('--deep_supervision', default=False, type=str2bool)
-    parser.add_argument('--input_channels', default=3, type=int,
+    parser.add_argument('--input_channels', default=1, type=int,
                         help='input channels')
-    parser.add_argument('--num_classes', default=32, type=int,
+    parser.add_argument('--num_classes', default=2, type=int,
                         help='number of classes')
 
     # loss
@@ -104,12 +104,12 @@ def get_args():
     parser.add_argument('--beta', type=float, default=0.9999)
 
     # dataset
-    parser.add_argument('--dataset', metavar='DATASET', default='Cam2007DatasetV2',
+    parser.add_argument('--dataset', metavar='DATASET', default='U373',
                         choices=DATASET_NAMES,
                         help='model architecture: ' +
                         ' | '.join(DATASET_NAMES) +
                         ' (default: BasicDataset)')
-    parser.add_argument('--data_dir', default='./data/Cam2007_n',
+    parser.add_argument('--data_dir', default='./data/U373',
                         help='dataset_location_dir')
     parser.add_argument('--num_workers', default=0, type=int)
     #for dsb dataset compact
@@ -180,7 +180,6 @@ def get_args():
 
     return parser.parse_args()
 
-    
 def eval_net(context,epoch,miou_split=True):
     """Evaluation without the densecrf with the dice coefficient"""
     if context.net.n_classes > 1:
@@ -347,12 +346,7 @@ if __name__ == '__main__':
             ''')
     #set seed
     set_seed(context.args.seed)
-    # Change here to adapt to your data
-    # n_channels=3 for RGB images
-    # n_classes is the number of probabilities you want to get per pixel
-    #   - For 1 class and background, use n_classes=1
-    #   - For 2 classes, use n_classes=1
-    #   - For N > 2 classes, use n_classes=N
+    # init context
     context.net = archs.__dict__[context.args.arch](context.args)
     context.optimizer = get_optimizer(context.args,context.net)
     context.scheduler = get_scheduler(context.args,context.optimizer)
@@ -394,6 +388,7 @@ if __name__ == '__main__':
 
     # faster convolutions, but more memory
     # cudnn.benchmark = True
+
     # init data set here:
     #global datamaker
     context.datamaker = datasets.__dict__[context.args.dataset](context.args)
@@ -402,7 +397,7 @@ if __name__ == '__main__':
         args:          {context.args}
     ''')
 
-    #for csv
+    #for csv log
     log = OrderedDict()
     writer = SummaryWriter(comment=f'_ex.{context.args.experiment}_{context.args.optimizer}_LR_{context.args.lr}_BS_{context.args.batchsize}_model_{context.args.arch}')
     savepoint=savepoints.__dict__[context.args.savepoint](context.args)
@@ -410,7 +405,7 @@ if __name__ == '__main__':
         rounds = range(start_epoch,context.args.epochs)
         for epoch in rounds:
             # train
-            train_log = trainer(context =context,epoch = epoch)
+            train_log = trainer(context =context,epoch=epoch)
             #validate
             val_log = eval_net(context = context,epoch=epoch)
 

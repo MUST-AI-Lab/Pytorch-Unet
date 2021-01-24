@@ -17,7 +17,7 @@ except ImportError:
 from utils.tools import weight_norm,weight_norm_init
 from tqdm import tqdm
 
-__all__ = ["STDTrainer","CBLossTrainer"]
+__all__ = ["STDTrainer","CBLossTrainer","GradientTraceTrainer"]
 
 
 #trainer for cbloss
