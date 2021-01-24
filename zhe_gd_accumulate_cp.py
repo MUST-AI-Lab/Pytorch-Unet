@@ -4,8 +4,13 @@ import pandas as pd
 from utils.tools import file_name
 
 file_name = "./result/default.csv"
+file_name2 = "./result/default2.csv"
 csv_data = pd.read_csv(file_name)
+csv_data2 = pd.read_csv(file_name2)
+
 print(csv_data.head())
+print(csv_data2.head())
+
 total_epoch =10
 epochs = range(0,total_epoch)
 categorys=2
@@ -31,9 +36,21 @@ for cate in range(categorys):
     for i in range(total_epoch):
         ac_positive.append(np.sum(cp1[0:i+1]))
         ac_negative.append(np.sum(cp2[0:i+1]))
-    radio = np.array(ac_positive)/np.array(ac_negative)
-    radio = np.array(radio)
-    l1=plt.plot(epochs,radio,'ro-',label='train_positive_gd_cumulative_{}'.format(cate))
+    radio1 = np.array(ac_positive)/np.array(ac_negative)
+    radio1 = np.array(radio1)
+    l1=plt.plot(epochs,radio1,'ro-',label='radio_1_{}'.format(cate))
+
+    cp1 = csv_data2['train_positive_gd_cumulative_{}'.format(cate)]
+    cp2 = csv_data2['train_negative_gd_cumulative_{}'.format(cate)]
+    ac_positive = []
+    ac_negative = []
+    for i in range(total_epoch):
+        ac_positive.append(np.sum(cp1[0:i+1]))
+        ac_negative.append(np.sum(cp2[0:i+1]))
+    radio2 = np.array(ac_positive)/np.array(ac_negative)
+    radio2 = np.array(radio2)
+    l2=plt.plot(epochs,radio2,'bo--',label='radio_2_{}'.format(cate))
+
     plt.title('Ratio of cumulative gradients between positive samples\n and negative samples \n for {} category'.format(class_names[cate]))
     plt.xlabel('epochs')
     plt.ylabel('gradient')
@@ -44,14 +61,23 @@ for cate in range(categorys):
     plt.close()
 
 categories = [class_names[x] for x in idx]
+
 radios = []
 for cate in idx:
     cp1 = csv_data['train_positive_gd_cumulative_{}'.format(cate)]
     cp2 = csv_data['train_negative_gd_cumulative_{}'.format(cate)]
     radios.append(np.sum(cp1)/np.sum(cp2))
-
 radios = np.array(radios)
-l1=plt.plot(categories,radios,'ro-',label='radios')
+l1=plt.plot(categories,radios,'ro-',label='radios1')
+
+radios2 = []
+for cate in idx:
+    cp1 = csv_data2['train_positive_gd_cumulative_{}'.format(cate)]
+    cp2 = csv_data2['train_negative_gd_cumulative_{}'.format(cate)]
+    radios2.append(np.sum(cp1)/np.sum(cp2))
+radios2 = np.array(radios2)
+l1=plt.plot(categories,radios2,'ro-',label='radios2')
+
 plt.title('Ratio of cumulative gradients between positive samples\n and negative samples \n for each category')
 plt.xlabel('epochs')
 plt.xticks(rotation = 270,fontsize=10)
