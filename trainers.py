@@ -272,8 +272,8 @@ class GradientTraceTrainer:
                 pred = s_pred[index]
                 gt = onehot[:,:,index]
                 #ce loss
-                positive_gd.append(np.sum((1-pred)*gt))
-                negative_gd.append(np.sum(pred*(1-gt)))
+                positive_gd.append(np.sum((1-pred)*gt)/10000.0)
+                negative_gd.append(np.sum(pred*(1-gt))/10000.0)
             
             positive_gd = np.array(positive_gd)
             negative_gd = np.array(negative_gd)

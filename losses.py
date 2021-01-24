@@ -19,7 +19,8 @@ __all__ = ['FocalLoss','WeightBCEDiceLoss','WeightBCELoss','BCEDiceLoss','Lovasz
                     'FilterFocalLoss','FilterFocalLoss_Float','FilterWFocalLoss_Float','FilterCELoss','FilterCELoss_Float','FilterWCELoss','FilterWCELoss_Float','FilterLoss',
                     'EHCELoss','EHWCELoss','EHCELoss_Float','EHWCELoss_Float','EHFocalLoss','EHWFocalLoss','EHFocalLoss_Float','EHWFocalLoss_Float',
                     'EqualizationLoss','EqualizationLossV2','EqualizationLoss_Float','EqualizationLossV2_Float','EqualizationLossV3','EqualizationLossV3_Float','EqualizationLossV4','EqualizationLossV4_Float',
-                    'ASLLoss','ASLLossOrigin']
+                    'ASLLoss','ASLLossOrigin',
+                    'SeeSawLoss']
 
 # <--------------------------- BINARY LOSSES --------------------------->
 # ================================================
@@ -140,6 +141,82 @@ class WBCEWithLogitsLoss(nn.Module):
 
 # <--------------------------- MULTICLASS LOSSES --------------------------->
 # ================================================
+
+#---------------------------------------------------------------------
+class SeeSawLoss(nn.Module):
+    __name__ = 'seesaw_loss'
+    
+    def __init__(self,args):
+        super(SeeSawLoss, self).__init__()
+        self.args =args
+        self.N = args.num_classes
+        self.initM=False
+        self.M = torch.ones([self.args.batchsize,self.N,self.N])
+        self.p=1
+        self.q=1
+        self.M.to(device=self.args.device, dtype=torch.float32)
+        self.reduce=True
+        self.reduction="mean"
+
+    def init_M(self,weight):
+        for k in range(self.args.batchsize):
+            for i in range(self.N):
+                for j in range(self.N):
+                    if weight[k][i] > weight[k][j]:
+                        self.M[k][i][j]=(weight[k][j]/weight[k][i])**self.p
+
+    def update_C(self,sigma):
+        shape = sigma.shape
+        self.C = torch.ones([shape[0],self.N,self.N,shape[2],shape[3]])
+        self.C.to(device=self.args.device, dtype=torch.float32)
+        for b in range(shape[0]):
+            for h in range(shape[2]):
+                for w in range(shape[3]):
+                    for i in range(self.N):
+                        for j in range(self.N):
+                            if sigma[b][i][h][w]>sigma[b][j][h][w]:
+                                self.C[b][i][j][h][w] = (sigma[b][j][h][w]/sigma[b][i][h][w])**self.q
+
+    
+    def forward(self, logit, target,epoch,weight=None):
+        if not self.args.loss_reduce:
+            raise NotImplementedError("self.args.loss_reduce  False=not suport by this Loss ")
+
+        exp = torch.exp(logit)
+        # 根据target的索引，在exp第一维取出元素值，这是softmax的分子
+        tmp1 = exp.gather(1,target.unsqueeze(1)).squeeze()
+        # 在exp第一维求和，这是softmax的分母
+        tmp2 = exp.sum(1)
+        # softmax公式：ei / sum(ej)
+        sigma= exp/tmp2
+ 
+        if not self.initM:
+            self.init_M(weight)
+            self.initM=True
+        self.update_C(sigma)
+        S=self.C*self.M.unsqueeze(-1).unsqueeze(-1)
+
+        #finding
+        tmp_a = torch.unsqueeze(exp,dim=1)
+        tmp_b = tmp_a*S
+        tmp_c = tmp_b.sum(1)
+        tmp_d = tmp_c.sum(1)
+        softmax_hat = tmp1/tmp_d
+
+        log = -torch.log(softmax_hat)
+
+
+        if not self.reduce:
+            return log
+        if self.reduction == "mean": return log.mean()
+        elif self.reduction == "sum": return log.sum()
+        else:
+            raise NotImplementedError('unkowned reduction')
+    
+        
+
+
+
 
 # --------------------------- dice series ---------------------------
 def diceCoeff(pred, gt, smooth=1e-5, activation='sigmoid'):

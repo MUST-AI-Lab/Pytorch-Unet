@@ -3,12 +3,12 @@ import matplotlib.pyplot as plt
 import pandas as pd
 from utils.tools import file_name
 
-file_name = "./result/default.csv"
+file_name = "./result/ce.csv"
 csv_data = pd.read_csv(file_name)
 print(csv_data.head())
-total_epoch =10
+total_epoch =30
 epochs = range(0,total_epoch)
-categorys=2
+categorys=32
 
 # idx=[0,1]
 # class_names=["background","cell"]
