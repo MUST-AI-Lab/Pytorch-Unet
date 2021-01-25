@@ -1,0 +1,2 @@
+python3 main.py  --experiment ce_seesaw --dataset Cam2007DatasetV2 --data_dir  ./data/Cam2007_n  --input_channels 3  --num_classes 32 --batch-size 1 --arch UNet --deep_supervision false --optimizer SGD  --loss SeeSawLoss  --epochs 30 --learning-rate 1e-2  --momentum 0.9 --save_check_point false  --force_save_last true  --weight_loss true --weight_type global_distrubution --device_id 0 --loss_reduce true --device cpu
+

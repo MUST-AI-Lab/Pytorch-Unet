@@ -157,6 +157,7 @@ class SeeSawLoss(nn.Module):
         self.M.to(device=self.args.device, dtype=torch.float32)
         self.reduce=True
         self.reduction="mean"
+        self.ce_fn = nn.CrossEntropyLoss(reduce=False)
 
     def init_M(self,weight):
         for k in range(self.args.batchsize):
@@ -169,50 +170,60 @@ class SeeSawLoss(nn.Module):
         shape = sigma.shape
         self.C = torch.ones([shape[0],self.N,self.N,shape[2],shape[3]])
         self.C.to(device=self.args.device, dtype=torch.float32)
-        for b in range(shape[0]):
-            for h in range(shape[2]):
-                for w in range(shape[3]):
-                    for i in range(self.N):
-                        for j in range(self.N):
-                            if sigma[b][i][h][w]>sigma[b][j][h][w]:
-                                self.C[b][i][j][h][w] = (sigma[b][j][h][w]/sigma[b][i][h][w])**self.q
+        # for b in range(shape[0]):
+        #     for h in range(shape[2]):
+        #         for w in range(shape[3]):
+        #             for i in range(self.N):
+        #                 for j in range(self.N):
+        #                     if sigma[b][i][h][w]>sigma[b][j][h][w]:
+        #                         self.C[b][i][j][h][w] = (sigma[b][j][h][w]/sigma[b][i][h][w])**self.q
 
     
     def forward(self, logit, target,epoch,weight=None):
         if not self.args.loss_reduce:
             raise NotImplementedError("self.args.loss_reduce  False=not suport by this Loss ")
 
-        exp = torch.exp(logit)
-        # 根据target的索引，在exp第一维取出元素值，这是softmax的分子
-        tmp1 = exp.gather(1,target.unsqueeze(1)).squeeze()
-        # 在exp第一维求和，这是softmax的分母
-        tmp2 = exp.sum(1)
-        # softmax公式：ei / sum(ej)
-        sigma= exp/tmp2
- 
-        if not self.initM:
-            self.init_M(weight)
-            self.initM=True
-        self.update_C(sigma)
-        S=self.C*self.M.unsqueeze(-1).unsqueeze(-1)
-
-        #finding
-        tmp_a = torch.unsqueeze(exp,dim=1)
-        tmp_b = tmp_a*S
-        tmp_c = tmp_b.sum(1)
-        tmp_d = tmp_c.sum(1)
-        softmax_hat = tmp1/tmp_d
-
-        log = -torch.log(softmax_hat)
-
-
-        if not self.reduce:
-            return log
-        if self.reduction == "mean": return log.mean()
-        elif self.reduction == "sum": return log.sum()
-        else:
-            raise NotImplementedError('unkowned reduction')
+        if weight is not None:
+            exp = torch.exp(logit)
+            # 根据target的索引，在exp第一维取出元素值，这是softmax的分子
+            tmp1 = exp.gather(1,target.unsqueeze(1)).squeeze()
+            # 在exp第一维求和，这是softmax的分母
+            tmp2 = exp.sum(1)
+            # softmax公式：ei / sum(ej)
+            sigma= exp/tmp2
     
+            if not self.initM:
+                self.init_M(weight)
+                self.initM=True
+            self.update_C(sigma)
+            S=self.C*self.M.unsqueeze(-1).unsqueeze(-1)
+
+            #finding
+            tmp_a = torch.unsqueeze(exp,dim=1)
+            tmp_b = tmp_a*S
+            tmp_c = tmp_b.sum(1)
+            tmp_d = tmp1/tmp_c
+            softmax_hat = tmp_d.gather(1,target.unsqueeze(1)).squeeze()
+
+            log = -torch.log(softmax_hat)
+
+
+            if not self.reduce:
+                return log
+            if self.reduction == "mean": return log.mean()
+            elif self.reduction == "sum": return log.sum()
+            else:
+                raise NotImplementedError('unkowned reduction')
+        else:
+            loss = self.ce_fn(logit, target)
+            if not self.reduce:
+                return loss
+            if self.reduction == "mean": return loss.mean()
+            elif self.reduction == "sum": return loss.sum()
+            else:
+                raise NotImplementedError('unkowned reduction')
+            
+                
         
 
 
