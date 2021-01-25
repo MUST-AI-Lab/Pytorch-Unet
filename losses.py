@@ -152,6 +152,7 @@ class SeeSawLoss(nn.Module):
         self.N = args.num_classes
         self.initM=False
         self.M = torch.ones([self.args.batchsize,self.N,self.N])
+        self.C=None
         self.p=1
         self.q=1
         self.M.to(device=self.args.device, dtype=torch.float32)
