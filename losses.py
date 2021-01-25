@@ -164,7 +164,7 @@ class SeeSawLoss(nn.Module):
         for k in range(self.args.batchsize):
             for i in range(self.N):
                 for j in range(self.N):
-                    if weight[k][i] > weight[k][j]:
+                    if weight[k][i] < weight[k][j]:
                         self.M[k][i][j]=(weight[k][i]/weight[k][j])**self.p
 
     def update_C(self,sigma):
