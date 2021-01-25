@@ -167,9 +167,10 @@ class SeeSawLoss(nn.Module):
                         self.M[k][i][j]=(weight[k][j]/weight[k][i])**self.p
 
     def update_C(self,sigma):
-        shape = sigma.shape
-        self.C = torch.ones([shape[0],self.N,self.N,shape[2],shape[3]])
-        self.C.to(device=self.args.device, dtype=torch.float32)
+        if self.C is None:
+            shape = sigma.shape
+            self.C = torch.ones([shape[0],self.N,self.N,shape[2],shape[3]])
+            self.C.to(device=self.args.device, dtype=torch.float32)
         # for b in range(shape[0]):
         #     for h in range(shape[2]):
         #         for w in range(shape[3]):
@@ -199,7 +200,7 @@ class SeeSawLoss(nn.Module):
             S=self.C*self.M.unsqueeze(-1).unsqueeze(-1)
 
             #finding
-            tmp_a = torch.unsqueeze(exp,dim=1)
+            tmp_a = torch.unsqueeze(exp,dim=2)
             tmp_b = tmp_a*S
             tmp_c = tmp_b.sum(1)
             tmp_d = tmp1/tmp_c
