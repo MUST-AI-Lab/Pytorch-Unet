@@ -219,7 +219,7 @@ class STDTrainer:
                         avg_meters['final_norm_{}'.format(i)].update(weight_norms[i])
                         avg_meters['loss_gd_norm_{}'.format(i)].update(loss_norms[i])
                     #----------------------------
-                    nn.utils.clip_grad_value_(context.net.parameters(), 0.1)
+                    #nn.utils.clip_grad_value_(context.net.parameters(), 0.1)
                     context.optimizer.step()
                 else:
                     loss = loss/context.args.accumulation_step
@@ -278,8 +278,6 @@ class GradientTraceTrainer:
             positive_gd = np.array(positive_gd)
             negative_gd = np.array(negative_gd)
             return positive_gd,negative_gd
-
-
 
         def __call__(self,context,epoch):
             context.net.train()
@@ -365,7 +363,7 @@ class GradientTraceTrainer:
                                 avg_meters['negative_gd_cumulative_{}'.format(category)].update(negative_gd[category])
 
 
-                        nn.utils.clip_grad_value_(context.net.parameters(), 0.1)
+                        #nn.utils.clip_grad_value_(context.net.parameters(), 0.1)
                         context.optimizer.step()
                     else:
                         loss = loss/context.args.accumulation_step
