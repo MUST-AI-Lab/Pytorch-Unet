@@ -23,7 +23,7 @@ from utils.weights_collate import default_collate_with_weight,label2_baseline_we
 import pandas as pd
 from utils.mic.dataset_helper import load_from_single_page_tiff,load_from_multi_page_tiff
 
-__all__ = ['BasicDataset', 'CarvanaDataset','HeLa','U373','Cam2007DatasetV2','KeyBoard','KeyBoard2','ISBI2012','DSB','CityScape']
+__all__ = ['HeLa','U373','Cam2007DatasetV2','KeyBoard','KeyBoard2','ISBI2012','DSB','CityScape']
 
 
 class SegDataSet_T(Dataset):
@@ -167,6 +167,8 @@ class SegDataSet_T(Dataset):
         image,label,id = self.pairs[idx]
         #pre_process
         img = (image.astype('float32')-128) / 255
+
+        #get weight process
         if len(img.shape)==3: #switch channel to first
             img = image.transpose(2, 0, 1).astype('float32')
         else:# gray channel is 1
@@ -322,7 +324,7 @@ class SegDataSet_T(Dataset):
         return weight
 
     # get pixel distribution from data set
-    def statistic_dataset(self):
+    def statistic_dataset(self,count=2):
         keeper = dict()
         keeper['id'] = []
         for item in self.class_names:
@@ -331,7 +333,7 @@ class SegDataSet_T(Dataset):
             keeper['id'].append(ids)
             total = np.prod(label.shape)
             total_pixel =0
-            for i in range(32):
+            for i in range(self.args.num_classes):
                 state = (label==i).astype(np.int)
                 total_pixel +=  np.sum(state)
                 keeper[self.class_names[i]].append((np.sum(state))/total)
@@ -355,13 +357,13 @@ class SegDataSet_T(Dataset):
         for i in range(len(self.class_names)):#total
             ax.bar(names[i], summary_factor[i],color=self.RGB_to_Hex("{},{},{}".format(colors[i][0],colors[i][1],colors[i][2])))
         for a,b in zip(names,summary_factor):
-            plt.text(a, b+0, '%.2f' % b, ha='center', va= 'bottom',fontsize=10)
+            plt.text(a, b+0, '%.{}f'.format(count) % b, ha='center', va= 'bottom',fontsize=10)
         plt.xticks(rotation = 270,fontsize=10)
         plt.title('Distribution of pixels count')
         plt.show()
 
         dataframe = pd.DataFrame.from_dict(keeper)
-        dataframe.to_csv("Cam2007Dataset.csv",index=False)
+        dataframe.to_csv("{}_{}.csv".format(self.args.experiment,self.__len__()),index=False)
     
     def RGB_to_Hex(self,tmp):
         rgb = tmp.split(',')#将RGB格式划分开来
@@ -399,6 +401,9 @@ class KeyBoard2(SegDataSet_T):
         val.get_disturibution()
         n_train = len(train)
         n_val = len(val)
+        if True:
+            train.statistic_dataset()
+            val.statistic_dataset()
         train_loader = DataLoader(train, batch_size=args.batchsize, shuffle=False, num_workers=args.num_workers, pin_memory=True,collate_fn=default_collate_with_weight)
         val_loader = DataLoader(val, batch_size=args.batchsize, shuffle=False, num_workers=args.num_workers, pin_memory=True,collate_fn=default_collate_with_weight)
         return train_loader,val_loader,n_train,n_val
@@ -499,6 +504,9 @@ class Cam2007DatasetV2(SegDataSet_T):
         val.get_disturibution()
         n_train = len(train)
         n_val = len(val)
+        if False:
+            train.statistic_dataset()
+            val.statistic_dataset()
         train_loader = DataLoader(train, batch_size=args.batchsize, shuffle=False, num_workers=args.num_workers, pin_memory=True,collate_fn=default_collate_with_weight)
         val_loader = DataLoader(val, batch_size=args.batchsize, shuffle=False, num_workers=args.num_workers, pin_memory=True,collate_fn=default_collate_with_weight)
         return train_loader,val_loader,n_train,n_val
@@ -626,10 +634,10 @@ class U373(SegDataSet_T):
         return ["Background", "Cell"]
 
     def __call__(self,args):
-        train = HeLa(args)
+        train = U373(args)
         train.get_pairs("train.txt")
         train.get_disturibution()
-        val = HeLa(args)
+        val = U373(args)
         val.get_pairs("test.txt")
         val.get_disturibution()
         n_train = len(train)
@@ -752,6 +760,9 @@ class DSB(SegDataSet_T):
         val.get_disturibution()
         n_train = len(train)
         n_val = len(val)
+        if False:
+            train.statistic_dataset()
+            val.statistic_dataset()
         train_loader = DataLoader(train, batch_size=args.batchsize, shuffle=False, num_workers=args.num_workers, pin_memory=True,collate_fn=default_collate_with_weight)
         val_loader = DataLoader(val, batch_size=args.batchsize, shuffle=False, num_workers=args.num_workers, pin_memory=True,collate_fn=default_collate_with_weight)
         return train_loader,val_loader,n_train,n_val
@@ -805,6 +816,9 @@ class CityScape(SegDataSet_T):
         val.get_disturibution()
         n_train = len(train)
         n_val = len(val)
+        if False:
+            train.statistic_dataset()
+            val.statistic_dataset()
         train_loader = DataLoader(train, batch_size=args.batchsize, shuffle=False, num_workers=args.num_workers, pin_memory=True,collate_fn=default_collate_with_weight)
         val_loader = DataLoader(val, batch_size=args.batchsize, shuffle=False, num_workers=args.num_workers, pin_memory=True,collate_fn=default_collate_with_weight)
         return train_loader,val_loader,n_train,n_val

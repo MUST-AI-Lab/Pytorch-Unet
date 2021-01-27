@@ -3,8 +3,8 @@ import matplotlib.pyplot as plt
 import pandas as pd
 from utils.tools import file_name
 
-file_name = "./result/U373.csv"
-file_name2 = "./result/U373_iw.csv"
+file_name = "./result/DSB_f.csv"
+file_name2 = "./result/DSB_f_iw.csv"
 csv_data = pd.read_csv(file_name)
 csv_data2 = pd.read_csv(file_name2)
 
@@ -18,8 +18,11 @@ total_epoch =30
 epochs = range(0,total_epoch)
 categorys=2
 
+# idx=[1,0,2,3]
+# class_names=["Key","Background","Key_Light","Leak"]
+
 idx=[0,1]
-class_names=["background","cell"]
+class_names=["Background","Cell"]
 
 # idx = [17, 4, 26, 21, 19, 9, 2, 10, 5, 31, 30, 14, 16, 24, 8, 27, 12, 29, 7, 20, 1, 6, 11, 0, 3, 13, 15, 18, 22, 23, 25, 28]
 # class_names = [

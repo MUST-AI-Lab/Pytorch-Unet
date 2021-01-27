@@ -225,12 +225,6 @@ class SeeSawLoss(nn.Module):
             else:
                 raise NotImplementedError('unkowned reduction')
             
-                
-        
-
-
-
-
 # --------------------------- dice series ---------------------------
 def diceCoeff(pred, gt, smooth=1e-5, activation='sigmoid'):
     r""" computational formula：

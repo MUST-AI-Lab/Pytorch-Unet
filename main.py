@@ -83,7 +83,7 @@ def get_args():
     parser.add_argument('--deep_supervision', default=False, type=str2bool)
     parser.add_argument('--input_channels', default=3, type=int,
                         help='input channels')
-    parser.add_argument('--num_classes', default=19, type=int,
+    parser.add_argument('--num_classes', default=4, type=int,
                         help='number of classes')
 
     # loss
@@ -104,12 +104,12 @@ def get_args():
     parser.add_argument('--beta', type=float, default=0.9999)
 
     # dataset
-    parser.add_argument('--dataset', metavar='DATASET', default='CityScape',
+    parser.add_argument('--dataset', metavar='DATASET', default='KeyBoard2',
                         choices=DATASET_NAMES,
                         help='model architecture: ' +
                         ' | '.join(DATASET_NAMES) +
                         ' (default: BasicDataset)')
-    parser.add_argument('--data_dir', default='./data/city_scapes_lite',
+    parser.add_argument('--data_dir', default='./data/dataset_4type_keyboard',
                         help='dataset_location_dir')
     parser.add_argument('--num_workers', default=0, type=int)
     #for dsb dataset compact
