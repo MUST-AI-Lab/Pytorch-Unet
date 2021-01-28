@@ -164,8 +164,8 @@ class SeeSawLoss(nn.Module):
         for k in range(self.args.batchsize):
             for i in range(self.N):
                 for j in range(self.N):
-                    if weight[k][i] < weight[k][j]:
-                        self.M[k][i][j]=(weight[k][i]/weight[k][j])**self.p
+                    if weight[k][i] > weight[k][j]:
+                        self.M[k][i][j]=(weight[k][j]/weight[k][i])**self.p
 
     def update_C(self,sigma):
         if self.C is None:
@@ -206,10 +206,7 @@ class SeeSawLoss(nn.Module):
             tmp_c = tmp_b.sum(1)
             tmp_d = tmp1/tmp_c
             softmax_hat = tmp_d.gather(1,target.unsqueeze(1)).squeeze()
-
             log = -torch.log(softmax_hat)
-
-
             if not self.reduce:
                 return log
             if self.reduction == "mean": return log.mean()

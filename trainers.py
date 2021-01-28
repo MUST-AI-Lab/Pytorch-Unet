@@ -58,8 +58,6 @@ class CBLossTrainer:
                     weight = distribution2tensor(context.args.num_classes,weights,true_masks.numpy())
                     weight = weight * np.sum(count.numpy())
                     weight = torch.tensor(weight).float()
-                    
-
                 else:
                     weight = None
                 assert imgs.shape[1] == context.net.n_channels, \
@@ -254,6 +252,7 @@ class GradientTraceTrainer:
         
         #only for ce loss know
         def getRadio(self,context,s_pred,gt,i):
+            context.net.eval()
             s_pred = softmax(s_pred,axis=0)
             t_gt = torch.from_numpy(gt).type(torch.LongTensor)
             # get onehot
@@ -273,10 +272,11 @@ class GradientTraceTrainer:
                 gt = onehot[:,:,index]
                 #ce loss
                 positive_gd.append(np.sum((1-pred)*gt)/10000.0)
-                negative_gd.append(np.sum(pred*(1-gt))/10000.0)
+                negative_gd.append(np.sum(pred*gt)/10000.0)
             
             positive_gd = np.array(positive_gd)
             negative_gd = np.array(negative_gd)
+            context.net.train()
             return positive_gd,negative_gd
 
         def __call__(self,context,epoch):

@@ -166,7 +166,7 @@ class SegDataSet_T(Dataset):
     def __getitem__(self, idx):
         image,label,id = self.pairs[idx]
         #pre_process
-        img = (image.astype('float32')-128) / 255
+        img = image.astype('float32')/ 255
 
         #get weight process
         if len(img.shape)==3: #switch channel to first
