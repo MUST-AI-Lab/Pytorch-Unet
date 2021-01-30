@@ -3,13 +3,13 @@ import matplotlib.pyplot as plt
 import pandas as pd
 from utils.tools import file_name
 
-file_name = "./result/DSB_f.csv"
-file_name2 = "./result/DSB_f_iw.csv"
+file_name = "./result/default_ce.csv"
+file_name2 = "./result/default.csv"
 csv_data = pd.read_csv(file_name)
 csv_data2 = pd.read_csv(file_name2)
 
 name1="ce"
-name2="ce_iw"
+name2="ce_seesaw"
 
 print(csv_data.head())
 print(csv_data2.head())

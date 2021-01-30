@@ -81,20 +81,20 @@ def get_args():
                         ' | '.join(TRAINERS_NAMES) +
                         ' (default: STDTrainer)')
     parser.add_argument('--deep_supervision', default=False, type=str2bool)
-    parser.add_argument('--input_channels', default=3, type=int,
+    parser.add_argument('--input_channels', default=1, type=int,
                         help='input channels')
-    parser.add_argument('--num_classes', default=4, type=int,
+    parser.add_argument('--num_classes', default=2, type=int,
                         help='number of classes')
 
     # loss
-    parser.add_argument('--loss', default='WeightCrossEntropyLoss',
+    parser.add_argument('--loss', default='SeeSawLoss',
                         choices=LOSS_NAMES,
                         help='loss: ' + 
                         ' | '.join(LOSS_NAMES) +
                         ' (default: WeightBCELoss)')
-    parser.add_argument('--weight_loss', default='false', type=str2bool)
+    parser.add_argument('--weight_loss', default='true', type=str2bool)
     parser.add_argument('--weight_bias', type=float, default=1e-11)
-    parser.add_argument('--weight_type', default='none')
+    parser.add_argument('--weight_type', default='single_count')
     # hyper parameter for FilterLoss
     parser.add_argument('--tail_radio', type=float, default=0.05)
     parser.add_argument('--loss_reduce', default=True, type=str2bool)
@@ -104,12 +104,12 @@ def get_args():
     parser.add_argument('--beta', type=float, default=0.9999)
 
     # dataset
-    parser.add_argument('--dataset', metavar='DATASET', default='KeyBoard2',
+    parser.add_argument('--dataset', metavar='DATASET', default='HeLa',
                         choices=DATASET_NAMES,
                         help='model architecture: ' +
                         ' | '.join(DATASET_NAMES) +
                         ' (default: BasicDataset)')
-    parser.add_argument('--data_dir', default='./data/dataset_4type_keyboard',
+    parser.add_argument('--data_dir', default='./data/HeLa',
                         help='dataset_location_dir')
     parser.add_argument('--num_workers', default=0, type=int)
     #for dsb dataset compact

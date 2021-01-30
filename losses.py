@@ -151,35 +151,13 @@ class SeeSawLoss(nn.Module):
         self.args =args
         self.N = args.num_classes
         self.initM=False
-        self.M = torch.ones([self.args.batchsize,self.N,self.N])
-        self.C=None
+        self.M = torch.zeros([self.args.batchsize,self.N])
         self.p=1
         self.q=1
         self.M.to(device=self.args.device, dtype=torch.float32)
         self.reduce=True
         self.reduction="mean"
         self.ce_fn = nn.CrossEntropyLoss(reduce=False)
-
-    def init_M(self,weight):
-        for k in range(self.args.batchsize):
-            for i in range(self.N):
-                for j in range(self.N):
-                    if weight[k][i] > weight[k][j]:
-                        self.M[k][i][j]=(weight[k][j]/weight[k][i])**self.p
-
-    def update_C(self,sigma):
-        if self.C is None:
-            shape = sigma.shape
-            self.C = torch.ones([shape[0],self.N,self.N,shape[2],shape[3]])
-            self.C.to(device=self.args.device, dtype=torch.float32)
-        # for b in range(shape[0]):
-        #     for h in range(shape[2]):
-        #         for w in range(shape[3]):
-        #             for i in range(self.N):
-        #                 for j in range(self.N):
-        #                     if sigma[b][i][h][w]>sigma[b][j][h][w]:
-        #                         self.C[b][i][j][h][w] = (sigma[b][j][h][w]/sigma[b][i][h][w])**self.q
-
     
     def forward(self, logit, target,epoch,weight=None):
         if not self.args.loss_reduce:
@@ -193,24 +171,40 @@ class SeeSawLoss(nn.Module):
             tmp2 = exp.sum(1)
             # softmax公式：ei / sum(ej)
             sigma= exp/tmp2
+            shape=sigma.shape
     
-            if not self.initM:
-                self.init_M(weight)
-                self.initM=True
-            self.update_C(sigma)
-            S=self.C*self.M.unsqueeze(-1).unsqueeze(-1)
+            #累加计数
+            self.M = self.M + (weight/10000)
+            channels = []
+            for i in range(self.N):
+                summing = torch.zeros([self.args.batchsize,1,shape[2],shape[3]])
+                for j in range(self.N):
+                    if i != j:
+                        ones = torch.ones([1]).to(device=self.args.device, dtype=torch.float32)
+                        C = sigma[:,j,:,:] / (sigma[:,i,:,:]+1e-9)
+                        C = torch.maximum(C,ones)
+                        M = self.M[:,j]/(self.M[:,i]+1e-9)
+                        M = torch.maximum(M,ones)
+                        summing += (C**self.q)*(M**self.p)*exp[:,j,:,:]
+                channels.append(exp[:,i,:,:]/(exp[:,i,:,:]+summing))
+            
+            sigma_hat = torch.stack(channels,dim=1).squeeze(dim=2)
 
-            #finding
-            tmp_a = torch.unsqueeze(exp,dim=2)
-            tmp_b = tmp_a*S
-            tmp_c = tmp_b.sum(1)
-            tmp_d = tmp1/tmp_c
-            softmax_hat = tmp_d.gather(1,target.unsqueeze(1)).squeeze()
-            log = -torch.log(softmax_hat)
+            shp_x = logit.shape
+            shp_y = target.shape
+            if len(shp_x) != len(shp_y):
+                target = target.view((shp_y[0], 1, *shp_y[1:]))
+            y_onehot = torch.zeros(shp_x)
+            if target.device.type == "cuda":
+                y_onehot = y_onehot.cuda(target.device.index)
+            y_onehot.scatter_(1, target, 1)
+
+            loss = -1 * y_onehot*torch.log(sigma_hat)
+
             if not self.reduce:
-                return log
-            if self.reduction == "mean": return log.mean()
-            elif self.reduction == "sum": return log.sum()
+                return loss
+            if self.reduction == "mean": return loss.mean()
+            elif self.reduction == "sum": return loss.sum()
             else:
                 raise NotImplementedError('unkowned reduction')
         else:
