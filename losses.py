@@ -154,7 +154,7 @@ class SeeSawLoss(nn.Module):
         self.M = torch.zeros([self.args.batchsize,self.N])
         self.p=1
         self.q=1
-        self.M.to(device=self.args.device, dtype=torch.float32)
+        self.M=self.M.to(device=self.args.device, dtype=torch.float32)
         self.reduce=True
         self.reduction="mean"
         self.ce_fn = nn.CrossEntropyLoss(reduce=False)
@@ -177,14 +177,13 @@ class SeeSawLoss(nn.Module):
             self.M = self.M + (weight/10000)
             channels = []
             for i in range(self.N):
-                summing = torch.zeros([self.args.batchsize,1,shape[2],shape[3]])
-                for j in range(self.N):
+                summing = torch.zeros([self.args.batchsize,1,shape[2],shape[3]]).to(device=self.args.device, dtype=torch.float32)
+                for j in range(self.N):#占用内存比较大的版本
                     if i != j:
-                        ones = torch.ones([1]).to(device=self.args.device, dtype=torch.float32)
                         C = sigma[:,j,:,:] / (sigma[:,i,:,:]+1e-9)
-                        C = torch.maximum(C,ones)
+                        C[C < 1] = 1
                         M = self.M[:,j]/(self.M[:,i]+1e-9)
-                        M = torch.maximum(M,ones)
+                        M[M < 1] = 1
                         summing += (C**self.q)*(M**self.p)*exp[:,j,:,:]
                 channels.append(exp[:,i,:,:]/(exp[:,i,:,:]+summing))
             

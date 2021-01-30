@@ -787,6 +787,7 @@ class DSB(SegDataSet_T):
             image = np.array(image)
             label =  Image.open('{}/{}/{}{}'.format(self.data_dir,GT,ids,self.args.img_ext))
             label = np.array(label)
+            label = (label>0).astype(np.int)
             #label = self.handle_label(label)
             if imshow:
                 rev_label = self.revert_label2rgb(label)
