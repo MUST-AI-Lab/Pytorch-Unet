@@ -20,7 +20,7 @@ __all__ = ['FocalLoss','WeightBCEDiceLoss','WeightBCELoss','BCEDiceLoss','Lovasz
                     'EHCELoss','EHWCELoss','EHCELoss_Float','EHWCELoss_Float','EHFocalLoss','EHWFocalLoss','EHFocalLoss_Float','EHWFocalLoss_Float',
                     'EqualizationLoss','EqualizationLossV2','EqualizationLoss_Float','EqualizationLossV2_Float','EqualizationLossV3','EqualizationLossV3_Float','EqualizationLossV4','EqualizationLossV4_Float',
                     'ASLLoss','ASLLossOrigin',
-                    'SeeSawLoss']
+                    'SeeSawLoss','SeesawLossWithLogits','SeeSawLossV2','SeeSawLossV3']
 
 # <--------------------------- BINARY LOSSES --------------------------->
 # ================================================
@@ -141,8 +141,221 @@ class WBCEWithLogitsLoss(nn.Module):
 
 # <--------------------------- MULTICLASS LOSSES --------------------------->
 # ================================================
+class SeesawLossWithLogits(nn.Module):
+    """
+    This is unofficial implementation for Seesaw loss,
+    which is proposed in the techinical report for LVIS workshop at ECCV 2020.
+    For more detail, please refer https://arxiv.org/pdf/2008.10032.pdf.
+    Args:
+    p: Scale parameter which adjust the strength of panishment.
+       Set to 0.8 for default following the paper.
+    """
 
+    def __init__(self,args, p: float = 0.8):
+        super().__init__()
+        self.args =args
+        self.N = args.num_classes
+        self.eps = 1.0e-6
+        self.p = p
+        self.s = None
+        self.class_counts = None
+        self.M = torch.ones([self.args.batchsize,self.N])
+        self.M=self.M.to(device=self.args.device, dtype=torch.float32)
+
+    def forward(self, logits, targets,epoch,weight=None):
+        shp_x = logits.shape
+        shp_y = targets.shape
+        if len(shp_x) != len(shp_y):
+            targets = targets.view((shp_y[0], 1, *shp_y[1:]))
+        y_onehot = torch.zeros(shp_x)
+        if targets.device.type == "cuda":
+            y_onehot = y_onehot.cuda(targets.device.index)
+        y_onehot.scatter_(1, targets, 1)
+
+        self.M = self.M + (weight)
+        conditions = self.M[:, None] > self.M[None, :]
+        trues = (self.M[None, :] / self.M[:, None]) ** self.p
+        falses = torch.ones(len(self.M), len(self.M))
+        self.s = torch.where(conditions, trues, falses)
+
+        max_element, _ = logits.max(axis=1)
+        logits = logits - max_element#prevent overflow
+
+        numerator = torch.exp(logits)
+        a = (1 - y_onehot)
+        b=self.s[None, :, :]
+        c= torch.exp(logits)[:, None, :]
+        t=(a*b*c).sum(axis=1)
+        d=torch.exp(logits)
+
+        denominator = (
+            (1 - y_onehot)[:, None, :]
+            * self.s[None, :, :]
+            * torch.exp(logits)[:, None, :]).sum(axis=1) \
+            + torch.exp(logits)
+
+        sigma = numerator / (denominator + self.eps)
+        loss = (- y_onehot * torch.log(sigma + self.eps)).sum(1)
+        return loss.mean()
 #---------------------------------------------------------------------
+class SeeSawLossV3(nn.Module):
+    """
+    将sigma_hat 移动到CPU空间计算，避免巨大的内存开销
+    """
+    __name__ = 'seesaw_loss'
+    
+    def __init__(self,args):
+        super(SeeSawLossV3, self).__init__()
+        self.args =args
+        self.N = args.num_classes
+        self.initM=False
+        self.M = torch.zeros([self.args.batchsize,self.N])
+        self.p=1
+        self.q=1
+        self.M=self.M.to(device=self.args.device, dtype=torch.float32)
+        self.reduce=True
+        self.reduction="sum"
+        self.ce_fn = nn.CrossEntropyLoss(reduce=False)
+
+    def forward(self, logit, target,epoch,weight=None):
+        if not self.args.loss_reduce:
+            raise NotImplementedError("self.args.loss_reduce  False=not suport by this Loss ")
+
+        if weight is not None:
+            exp = torch.exp(logit)
+            # 根据target的索引，在exp第一维取出元素值，这是softmax的分子
+            tmp1 = exp.gather(1,target.unsqueeze(1)).squeeze()
+            # 在exp第一维求和，这是softmax的分母
+            tmp2 = exp.sum(1)
+            # softmax公式：ei / sum(ej)
+            sigma= exp/tmp2
+
+            #累加计数
+            self.M = self.M + (weight/10000)
+            sigmas = torch.split(sigma,1,dim=1)
+            exps = torch.split(exp,1,dim=1)
+            Ms = torch.split(self.M,1,dim=1)
+            channels = []
+            for i in range(self.N):
+                _C = sigma / (sigmas[i]+1e-9)
+                _M = self.M/(Ms[i] +1)
+                _C[:,i,:,:] = _C[:,i,:,:] *0 # 当前类归0
+                _M[:,i] = _M[:,i] *0 # 当前类归0
+                _C[_C>1]=1
+                _M[_M>1]=1
+                _C = _C**self.p
+                _M = (_M**self.q).unsqueeze(-1).unsqueeze(-1)
+                S = _C * _M
+                summing = ( S * exp).sum(dim=1)+exps[i]
+                channels.append(exps[i]/summing)
+            
+            sigma_hat = torch.stack(channels,dim=1).squeeze(dim=2)
+
+            shp_x = logit.shape
+            shp_y = target.shape
+            if len(shp_x) != len(shp_y):
+                target = target.view((shp_y[0], 1, *shp_y[1:]))
+            y_onehot = torch.zeros(shp_x)
+            if target.device.type == "cuda":
+                y_onehot = y_onehot.cuda(target.device.index)
+            y_onehot.scatter_(1, target, 1)
+
+            loss = -1 * y_onehot*torch.log(sigma_hat)
+
+            if not self.reduce:
+                return loss
+            if self.reduction == "mean": return loss.mean()
+            elif self.reduction == "sum": return loss.sum()
+            else:
+                raise NotImplementedError('unkowned reduction')
+        else:
+            loss = self.ce_fn(logit, target)
+            if not self.reduce:
+                return loss
+            if self.reduction == "mean": return loss.mean()
+            elif self.reduction == "sum": return loss.sum()
+            else:
+                raise NotImplementedError('unkowned reduction')
+
+class SeeSawLossV2(nn.Module):
+    """
+    将sigma_hat 移动到CPU空间计算，避免巨大的内存开销
+    """
+    __name__ = 'seesaw_loss'
+    
+    def __init__(self,args):
+        super(SeeSawLossV2, self).__init__()
+        self.args =args
+        self.N = args.num_classes
+        self.initM=False
+        self.M = torch.zeros([self.args.batchsize,self.N])
+        self.p=1
+        self.q=1
+        self.M=self.M.to(device=self.args.device, dtype=torch.float32)
+        self.reduce=True
+        self.reduction="mean"
+        self.ce_fn = nn.CrossEntropyLoss(reduce=False)
+
+    def forward(self, logit, target,epoch,weight=None):
+        if not self.args.loss_reduce:
+            raise NotImplementedError("self.args.loss_reduce  False=not suport by this Loss ")
+
+        if weight is not None:
+            exp = torch.exp(logit)
+            # 根据target的索引，在exp第一维取出元素值，这是softmax的分子
+            tmp1 = exp.gather(1,target.unsqueeze(1)).squeeze()
+            # 在exp第一维求和，这是softmax的分母
+            tmp2 = exp.sum(1)
+            # softmax公式：ei / sum(ej)
+            sigma= exp/tmp2
+            shape=sigma.shape
+
+            #累加计数
+            self.M = self.M + (weight/10000)
+            sigmas = torch.split(sigma,1,dim=1)
+            exps = torch.split(exp,1,dim=1)
+            Ms = torch.split(self.M,1,dim=1)
+            channels = []
+            for i in range(self.N):
+                summing = torch.zeros([self.args.batchsize,1,shape[2],shape[3]]).to(device=self.args.device, dtype=torch.float32)
+                for j in range(self.N):#占用内存比较大的版本
+                    if i != j:
+                        C = sigmas[j] / (sigmas[i]+1e-9)
+                        C[C < 1] = 1
+                        M = Ms[j]/(Ms[i]+1e-9)
+                        M[M < 1] = 1
+                        summing += (C**self.q)*(M**self.p)*exps[j]
+                channels.append(exps[i]/(exps[i]+summing))
+            
+            sigma_hat = torch.stack(channels,dim=1).squeeze(dim=2)
+
+            shp_x = logit.shape
+            shp_y = target.shape
+            if len(shp_x) != len(shp_y):
+                target = target.view((shp_y[0], 1, *shp_y[1:]))
+            y_onehot = torch.zeros(shp_x)
+            if target.device.type == "cuda":
+                y_onehot = y_onehot.cuda(target.device.index)
+            y_onehot.scatter_(1, target, 1)
+
+            loss = -1 * y_onehot*torch.log(sigma_hat)
+
+            if not self.reduce:
+                return loss
+            if self.reduction == "mean": return loss.mean()
+            elif self.reduction == "sum": return loss.sum()
+            else:
+                raise NotImplementedError('unkowned reduction')
+        else:
+            loss = self.ce_fn(logit, target)
+            if not self.reduce:
+                return loss
+            if self.reduction == "mean": return loss.mean()
+            elif self.reduction == "sum": return loss.sum()
+            else:
+                raise NotImplementedError('unkowned reduction')
+
+
 class SeeSawLoss(nn.Module):
     __name__ = 'seesaw_loss'
     

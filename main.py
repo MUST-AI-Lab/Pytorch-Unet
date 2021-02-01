@@ -81,13 +81,13 @@ def get_args():
                         ' | '.join(TRAINERS_NAMES) +
                         ' (default: STDTrainer)')
     parser.add_argument('--deep_supervision', default=False, type=str2bool)
-    parser.add_argument('--input_channels', default=1, type=int,
+    parser.add_argument('--input_channels', default=3, type=int,
                         help='input channels')
-    parser.add_argument('--num_classes', default=2, type=int,
+    parser.add_argument('--num_classes', default=32, type=int,
                         help='number of classes')
 
     # loss
-    parser.add_argument('--loss', default='SeeSawLoss',
+    parser.add_argument('--loss', default='SeeSawLossV3',
                         choices=LOSS_NAMES,
                         help='loss: ' + 
                         ' | '.join(LOSS_NAMES) +
@@ -104,12 +104,12 @@ def get_args():
     parser.add_argument('--beta', type=float, default=0.9999)
 
     # dataset
-    parser.add_argument('--dataset', metavar='DATASET', default='HeLa',
+    parser.add_argument('--dataset', metavar='DATASET', default='Cam2007DatasetV2',
                         choices=DATASET_NAMES,
                         help='model architecture: ' +
                         ' | '.join(DATASET_NAMES) +
                         ' (default: BasicDataset)')
-    parser.add_argument('--data_dir', default='./data/HeLa',
+    parser.add_argument('--data_dir', default='./data/Cam2007_n',
                         help='dataset_location_dir')
     parser.add_argument('--num_workers', default=0, type=int)
     #for dsb dataset compact
